@@ -1,0 +1,28 @@
+# Release Policy
+
+QuickRecorder Enhanced uses its own release line beginning with
+`v1.7.0-alpha.1`. Upstream tags are historical upstream versions, not releases
+of this project, and are not copied into this repository.
+
+## Current phase
+
+Alpha releases are source-only. They provide a stable review point for the
+fork's code and documentation without implying that a locally signed build is
+safe to distribute to other users.
+
+## Binary release gate
+
+The first binary release must pass the signing, notarization, architecture,
+runtime-license, clean-install, upgrade, and privacy-permission requirements in
+[building.md](building.md).
+
+The updater remains disabled until the project publishes its own appcast and
+Sparkle public key. It must never consume the upstream QuickRecorder update
+feed.
+
+## Versioning
+
+- tags: `vMAJOR.MINOR.PATCH` with optional prerelease suffix;
+- app version: numeric `MAJOR.MINOR.PATCH`;
+- release assets: generated only by the fork's release process;
+- release notes: describe fork changes and credit the upstream base once.

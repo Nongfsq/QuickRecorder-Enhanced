@@ -1,0 +1,20 @@
+name: Public repository safety
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check public tree
+        run: sh Scripts/check-public-tree.sh
+      - name: Test RNNoise package
+        run: swift test --package-path Packages/RNNoiseProcessor

@@ -1,0 +1,72 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcresult
+*.xcarchive
+*.dSYM
+*.dSYM.zip
+*.app
+*.ipa
+*.pkg
+*.dmg
+*.hmap
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Swift Package Manager and dependency build output
+.build/
+Carthage/Build/
+Dependencies/
+.accio/
+
+# Editors and local tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Signing credentials and local release configuration
+*.cer
+*.p12
+*.pem
+*.key
+*.mobileprovision
+.env
+.env.*
+Config/Local.xcconfig
+
+# Recordings and generated media must never be committed
+*.m4a
+*.qma
+*.mp4
+*.mov
+*.m4v
+*.wav
+
+# Generated FFmpeg runtime payload. Build it locally with Tools/Archive.
+QuickRecorder/Resources/FFmpegRuntime/bin/*
+QuickRecorder/Resources/FFmpegRuntime/lib/*
+!QuickRecorder/Resources/FFmpegRuntime/bin/.gitkeep
+!QuickRecorder/Resources/FFmpegRuntime/lib/.gitkeep
