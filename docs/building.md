@@ -22,6 +22,11 @@ updates signed by the same identity should retain authorization.
 
 ## Public binaries
 
+An alpha release may provide a self-signed, unnotarized DMG for explicit
+testing. The release notes must identify that status, give a checksum, and
+state any omitted or architecture-limited optional runtime. It must not be
+presented as a generally supported installer.
+
 A public installer requires all of the following:
 
 1. a Bundle ID owned by this project;

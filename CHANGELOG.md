@@ -9,3 +9,5 @@
 - Removed automatic retry behavior after ScreenCaptureKit permission denial.
 - Established independent project documentation and release policy.
 - Disabled the inherited upstream update feed pending a fork-owned signed feed.
+- Published an experimental, self-signed Universal DMG for RNNoise and lecture
+  recording tests; the optional FFmpeg runtime is not bundled in this alpha.

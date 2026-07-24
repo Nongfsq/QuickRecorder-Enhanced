@@ -6,9 +6,11 @@ of this project, and are not copied into this repository.
 
 ## Current phase
 
-Alpha releases are source-only. They provide a stable review point for the
-fork's code and documentation without implying that a locally signed build is
-safe to distribute to other users.
+Alpha releases provide a stable review point for the fork's code and
+documentation. They may also carry an experimental DMG when its signing,
+notarization, architecture, and bundled-runtime limitations are stated in the
+release notes. Such a DMG is for hands-on testing and is not a generally
+supported installer.
 
 ## Binary release gate
 
