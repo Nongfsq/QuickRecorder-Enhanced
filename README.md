@@ -35,8 +35,15 @@ through the noise-reduction pipeline.
 
 ## Status
 
-The current release is a **source preview**. No generally supported signed
-installer is published yet.
+The current release includes an **experimental DMG** for testing the lecture
+recording and RNNoise workflow. It uses the project's stable local signing
+identity, but it is not Developer ID signed or Apple-notarized, so macOS may
+require **Open** from the Finder context menu on first launch.
+
+The DMG contains a Universal (`arm64` + `x86_64`) app. The optional bundled
+FFmpeg runtime is intentionally omitted from this alpha binary; AV1 archive
+jobs require a separately installed compatible FFmpeg until runtime licensing
+and universal packaging are complete.
 
 The project now has its own version line and release page. The legacy upstream
 Sparkle feed is disabled; future binary updates will use a fork-owned signing
@@ -64,8 +71,10 @@ authorization. See [Building and signing](docs/building.md).
 Fork releases start at `v1.7.0-alpha.1`. Upstream tags and release artifacts
 are not republished as releases of this project.
 
-Until Developer ID signing, notarization, and a fork-owned Sparkle key are in
-place, releases contain source code only.
+Alpha releases may include an explicitly labeled, self-signed and unnotarized
+DMG for hands-on testing. A generally supported installer still requires
+Developer ID signing, notarization, complete runtime notices, and a fork-owned
+update key.
 
 ## License and attribution
 
