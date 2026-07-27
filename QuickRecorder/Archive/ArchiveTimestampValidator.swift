@@ -12,8 +12,17 @@ enum ArchiveValidationError: LocalizedError {
 }
 
 enum ArchiveTimestampValidator {
-    static func validate(runtime: FFmpegRuntime, sourceURL: URL, outputURL: URL, preset: AV1ArchivePreset, ffmpegLog: String, logDirectory: URL) throws -> [String: Any] {
+    static func validate(
+        runtime: FFmpegRuntime,
+        sourceURL: URL,
+        outputURL: URL,
+        preset: AV1ArchivePreset,
+        ffmpegLog: String,
+        logDirectory: URL,
+        cancellationRequested: @escaping () -> Bool = { false }
+    ) throws -> [String: Any] {
         var issues: [String] = []
+        try checkCancellation(cancellationRequested)
 
         for warning in ["Non-monotonic DTS", "Packets poorly interleaved", "failed to avoid negative timestamp", "missing picture in access unit"] {
             if ffmpegLog.localizedCaseInsensitiveContains(warning) {
@@ -27,15 +36,19 @@ enum ArchiveTimestampValidator {
             issues.append("output file is empty")
         }
 
-        let ffprobeWarning = (try? FFmpegRuntime.run(runtime.ffprobeURL, arguments: ["-v", "warning", outputURL.path])) ?? ProcessRunResult(exitCode: 1, stdout: "", stderr: "ffprobe failed")
+        let ffprobeWarning = try FFmpegRuntime.run(
+            runtime.ffprobeURL,
+            arguments: ["-v", "warning", outputURL.path],
+            cancellationRequested: cancellationRequested
+        )
         let ffprobeWarningText = ffprobeWarning.stdout + ffprobeWarning.stderr
         ArchiveManifestStore.write(ffprobeWarningText, to: logDirectory.appendingPathComponent("ffprobe-warning.log"))
         if ffprobeWarning.exitCode != 0 || !ffprobeWarningText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append("ffprobe warning check failed")
         }
 
-        let sourceProbe = probe(runtime: runtime, url: sourceURL)
-        let outputProbe = probe(runtime: runtime, url: outputURL)
+        let sourceProbe = try probe(runtime: runtime, url: sourceURL, cancellationRequested: cancellationRequested)
+        let outputProbe = try probe(runtime: runtime, url: outputURL, cancellationRequested: cancellationRequested)
         let sourceVideo = firstStream(sourceProbe, type: "video")
         let outputVideo = firstStream(outputProbe, type: "video")
         let sourceAudio = firstStream(sourceProbe, type: "audio")
@@ -66,11 +79,13 @@ enum ArchiveTimestampValidator {
             }
         }
 
-        let videoPacketStats = packetStats(runtime: runtime, url: outputURL, stream: "v:0")
+        let videoPacketStats = try packetStats(runtime: runtime, url: outputURL, stream: "v:0", cancellationRequested: cancellationRequested)
         if !videoPacketStats.issues.isEmpty {
             issues.append(contentsOf: videoPacketStats.issues.map { "video packet \($0)" })
         }
-        let audioPacketStats = outputAudio == nil ? PacketStats(count: 0, issues: []) : packetStats(runtime: runtime, url: outputURL, stream: "a:0")
+        let audioPacketStats = try outputAudio == nil
+            ? PacketStats(count: 0, issues: [])
+            : packetStats(runtime: runtime, url: outputURL, stream: "a:0", cancellationRequested: cancellationRequested)
         if !audioPacketStats.issues.isEmpty {
             issues.append(contentsOf: audioPacketStats.issues.map { "audio packet \($0)" })
         }
@@ -98,8 +113,13 @@ enum ArchiveTimestampValidator {
         return validation
     }
 
-    private static func probe(runtime: FFmpegRuntime, url: URL) -> [String: Any] {
-        guard let result = try? FFmpegRuntime.run(runtime.ffprobeURL, arguments: ["-v", "error", "-show_streams", "-show_format", "-of", "json", url.path]),
+    private static func probe(runtime: FFmpegRuntime, url: URL, cancellationRequested: @escaping () -> Bool) throws -> [String: Any] {
+        let result = try FFmpegRuntime.run(
+            runtime.ffprobeURL,
+            arguments: ["-v", "error", "-show_streams", "-show_format", "-of", "json", url.path],
+            cancellationRequested: cancellationRequested
+        )
+        guard result.exitCode == 0,
               let data = result.stdout.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return [:]
@@ -140,15 +160,16 @@ enum ArchiveTimestampValidator {
         let issues: [String]
     }
 
-    private static func packetStats(runtime: FFmpegRuntime, url: URL, stream: String) -> PacketStats {
-        guard let result = try? FFmpegRuntime.run(runtime.ffprobeURL, arguments: [
+    private static func packetStats(runtime: FFmpegRuntime, url: URL, stream: String, cancellationRequested: @escaping () -> Bool) throws -> PacketStats {
+        let result = try FFmpegRuntime.run(runtime.ffprobeURL, arguments: [
             "-v", "error",
             "-select_streams", stream,
             "-show_packets",
             "-show_entries", "packet=pts_time,dts_time",
             "-of", "csv=p=0",
             url.path
-        ]), result.exitCode == 0 else {
+        ], cancellationRequested: cancellationRequested)
+        guard result.exitCode == 0 else {
             return PacketStats(count: 0, issues: ["timestamp probe failed"])
         }
 
@@ -180,6 +201,12 @@ enum ArchiveTimestampValidator {
         }
 
         return PacketStats(count: count, issues: Array(Set(issues)).sorted())
+    }
+
+    private static func checkCancellation(_ cancellationRequested: () -> Bool) throws {
+        if cancellationRequested() {
+            throw ArchiveSubprocessError.cancelled
+        }
     }
 
     private static func fileSize(_ url: URL) -> Int64 {

@@ -57,7 +57,7 @@ struct ArchiveJobView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                if job.status == .compressing || job.status == .verifying {
+                if job.status == .compressing || job.status == .verifying || job.status == .cancelling {
                     ProgressView(value: job.progress)
                 }
                 Text(job.detail.local)
@@ -113,8 +113,22 @@ struct ArchiveJobView: View {
             }
             Spacer()
             if let job = job, job.isRunning {
-                Button("Cancel Archive".local) {
-                    service.cancel(jobID: job.id)
+                if job.status == .cancelling {
+                    Button("Cancelling".local) {}
+                        .disabled(true)
+                } else {
+                    Button("Cancel Archive".local) {
+                        service.cancel(jobID: job.id)
+                    }
+                }
+            } else if let job = job, job.status == .interrupted {
+                if FileManager.default.fileExists(atPath: job.tempOutputURL.path) {
+                    Button("Validate Temporary Archive".local) {
+                        service.recoverTemporaryOutput(jobID: job.id)
+                    }
+                }
+                Button("Restart Compression".local) {
+                    service.restart(jobID: job.id)
                 }
             } else {
                 Button("Install FFmpeg Runtime".local) {

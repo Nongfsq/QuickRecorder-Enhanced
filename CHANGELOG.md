@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.0-alpha.2
+
+- Added durable archive manifests, interrupted-job recovery, stale-task cleanup,
+  and safer application termination while archive work is active.
+- Added clear recovery actions for abandoned or missing archive sources, with
+  list cleanup that prevents deleted recordings from being recompressed.
+- Introduced testable Swift packages for archive state, recording-domain
+  policy, and role-aware window placement.
+- Centralized typed recording requests, normalized preference snapshots,
+  bitrate and adaptive-VFR policy, and session lifecycle transitions.
+- Recovered ordinary app windows onto a live display after monitors are
+  disconnected or rearranged, while preserving capture-bound overlay geometry.
+- Fixed the SwiftUI app-delegate startup crash caused by duplicate lifecycle
+  ownership.
+- Fixed the main-panel Preferences command so it opens the settings window
+  semantically instead of targeting a fragile menu index.
+- Published this checkpoint as a source-only prerelease. A public DMG remains
+  gated on Developer ID signing, notarization, reproducible Universal runtime
+  packaging, third-party notices, and a fork-owned update feed.
+
 ## 1.7.0-alpha.1
 
 - Added RNNoise microphone cleanup with a fixed 80/20 processed/dry mix.

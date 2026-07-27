@@ -64,14 +64,19 @@ struct QuickRecorderApp: App {
                     WindowAccessor(
                         onWindowOpen: { w in
                             if let w = w {
+                                WindowPlacementCoordinator.shared.register(w, role: .settings)
                                 //w.level = .floating
                                 w.titlebarSeparatorStyle = .none
-                                guard let nsSplitView = findNSSplitVIew(view: w.contentView),
-                                      let controller = nsSplitView.delegate as? NSSplitViewController else { return }
-                                controller.splitViewItems.first?.canCollapse = false
-                                controller.splitViewItems.first?.minimumThickness = 140
-                                controller.splitViewItems.first?.maximumThickness = 140
-                                w.orderFront(nil)
+                                if let nsSplitView = findNSSplitVIew(view: w.contentView),
+                                   let controller = nsSplitView.delegate as? NSSplitViewController {
+                                    controller.splitViewItems.first?.canCollapse = false
+                                    controller.splitViewItems.first?.minimumThickness = 140
+                                    controller.splitViewItems.first?.maximumThickness = 140
+                                }
+                                DispatchQueue.main.async {
+                                    WindowPlacementCoordinator.shared.recover(w)
+                                    w.makeKeyAndOrderFront(nil)
+                                }
                             }
                         })
                 )
@@ -93,7 +98,22 @@ extension Scene {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOutput, AVCaptureVideoDataOutputSampleBufferDelegate  {
-    static let shared = AppDelegate()
+    private static weak var installedInstance: AppDelegate?
+
+    static var shared: AppDelegate {
+        guard let delegate = installedInstance else {
+            preconditionFailure("The SwiftUI lifecycle has not installed AppDelegate yet.")
+        }
+        return delegate
+    }
+
+    override init() {
+        super.init()
+        Self.installedInstance = self
+    }
+
+    private var archiveTerminationPending = false
+    let recordingSession = RecordingSessionCoordinator()
     var filter: SCContentFilter?
     var isCameraReady = false
     var isPresenterON = false
@@ -110,7 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     @AppStorage("remuxAudio")       var remuxAudio: Bool = true
     @AppStorage("recordWinSound")   var recordWinSound: Bool = true
     @AppStorage("recordHDR")        var recordHDR: Bool = false
-    @AppStorage("encoder")          var encoder: Encoder = .h265
+    @AppStorage("encoder")          var encoder: Encoder = .h264
     @AppStorage("highRes")          var highRes: Int = 2
     @AppStorage("AECLevel")         var AECLevel: String = "mid"
     @AppStorage("withAlpha")        var withAlpha: Bool = false
@@ -179,7 +199,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     
     func applicationWillTerminate(_ aNotification: Notification) {
         if SCContext.stream != nil { SCContext.stopRecording() }
-        ArchiveCompressionService.shared.cancelAll()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let archiveService = ArchiveCompressionService.shared
+        if archiveTerminationPending { return .terminateLater }
+        guard archiveService.hasRunningJobs else { return .terminateNow }
+
+        let count = archiveService.runningJobCount
+        let alert = createAlert(
+            title: "Archive compression is still running",
+            message: String(format: "QuickRecorder is processing %d archive job(s). What would you like to do?".local, count),
+            button1: "Quit After Archives Finish",
+            button2: "Cancel Archives and Quit",
+            width: 430
+        )
+        alert.addButton(withTitle: "Don't Quit".local)
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            archiveTerminationPending = true
+            archiveService.waitForAllJobsToFinish { [weak self] in
+                self?.archiveTerminationPending = false
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+            return .terminateLater
+        case .alertSecondButtonReturn:
+            archiveTerminationPending = true
+            archiveService.cancelAllAndWait { [weak self] in
+                self?.archiveTerminationPending = false
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+            return .terminateLater
+        default:
+            archiveService.resumeAcceptingJobs()
+            return .terminateCancel
+        }
     }
     
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -191,6 +246,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     }
     
     func applicationWillFinishLaunching(_ notification: Notification) {
+        WindowPlacementCoordinator.shared.start()
         scPerm = SCContext.updateAvailableContentSync() != nil
         
         let process = NSWorkspace.shared.runningApplications.filter({
@@ -205,39 +261,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
         
         lazy var userDesktop = (NSSearchPathForDirectoriesInDomains(.desktopDirectory, .userDomainMask, true) as [String]).first!
         
-        ud.register( // default defaults (used if not set)
-            defaults: [
-                "audioFormat": AudioFormat.aac.rawValue,
-                "audioQuality": AudioQuality.high.rawValue,
-                "audioChannels": AudioChannels.stereo.rawValue,
-                "background": BackgroundType.wallpaper.rawValue,
-                "frameRate": 60,
-                "highRes": 2,
-                "hideSelf": true,
-                "highlightMouse" : false,
-                "hideDesktopFiles": false,
-                "includeMenuBar": true,
-                "videoBitrate": VideoBitrate.auto.rawValue,
-                "adaptiveVFR": false,
-                "videoQuality": 1.0,
+        var registeredDefaults = RecordingPreferencesStore.registeredDefaults(
+            outputDirectory: userDesktop,
+            isMacOS12: isMacOS12
+        )
+        registeredDefaults.merge(
+            [
                 "countdown": 0,
-                "videoFormat": VideoFormat.mp4.rawValue,
-                "pixelFormat": PixFormat.delault.rawValue,
-                "encoder": Encoder.h264.rawValue,
-                "poSafeDelay": 1,
-                "saveDirectory": userDesktop as NSString,
-                "showMouse": true,
-                "recordMic": false,
-                "remuxAudio": isMacOS12 ? false : true,
-                "recordWinSound": isMacOS12 ? false : true,
-                "trimAfterRecord": false,
                 "showOnDock": true,
                 "showMenubar": false,
-                "enableAEC": false,
-                "microphoneNoiseReduction": false,
-                "recordHDR": false,
-                "preventSleep": true,
-                "showPreview": isMacOS12 ? false : true,
                 "autoCreateAV1ArchiveAfterRecording": false,
                 "archiveAV1CRF": 56,
                 "archiveAV1SVTPreset": 8,
@@ -246,8 +278,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
                 "archiveAllowDeveloperFFmpegRuntime": false,
                 "archiveReplaceSourceAfterValidation": false,
                 "savedArea": [String: [String: CGFloat]]()
-            ]
+            ],
+            uniquingKeysWith: { _, newValue in newValue }
         )
+        ud.register(defaults: registeredDefaults)
         
         if highRes == 0 { highRes = 2 }
         if showOnDock { NSApp.setActivationPolicy(.regular) }
@@ -358,6 +392,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
             return
         }
         if showOnDock && !isArchiveSmoke { _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: true) }
+        if !ArchiveCompressionService.shared.recoveryJobs.isEmpty || !ArchiveCompressionService.shared.manifestLoadIssues.isEmpty {
+            createNewWindow(view: ArchiveRecoveryView(), title: "Interrupted Archives".local, random: false, only: false)
+        }
         tips("Would you like to use H.265 format for better video quality and smaller file size?",
              id: "qr.switch-to-h265.note", buttonTitle: "Use H.265", switchButton: true) {
             ud.setValue(Encoder.h265.rawValue, forKey: "encoder")
@@ -405,12 +442,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
                 mainPanel.isReleasedWhenClosed = false
                 mainPanel.isMovableByWindowBackground = true
                 mainPanel.collectionBehavior = [.canJoinAllSpaces]
-                mainPanel.center()
-                if let screen = mainPanel.screen {
-                    let wX = (screen.frame.width - mainPanel.frame.width) / 2 + screen.frame.minX
-                    let wY = (screen.frame.height - mainPanel.frame.height) / 2 + screen.frame.minY
-                    mainPanel.setFrameOrigin(NSPoint(x: wX, y: wY))
-                }
+                WindowPlacementCoordinator.shared.placeNew(
+                    mainPanel,
+                    role: .mainPanel,
+                    preferredScreen: SCContext.getScreenWithMouse() ?? NSScreen.main
+                )
                 mainPanel.makeKeyAndOrderFront(self)
                 if #unavailable(macOS 13) { NSApp.activate(ignoringOtherApps: true) }
                 PopoverState.shared.isShowing = false
@@ -421,9 +457,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     
     func openSettingPanel() {
         NSApp.activate(ignoringOtherApps: true)
-        if #available(macOS 14, *) {
-            NSApp.mainMenu?.items.first?.submenu?.item(at: 3)?.performAction()
-        } else if #available(macOS 13, *) {
+        if #available(macOS 13, *) {
+            if let settingsItem = NSApp.mainMenu?.items.first?.submenu?.items.first(where: {
+                $0.keyEquivalent == "," &&
+                $0.keyEquivalentModifierMask.contains(.command) &&
+                $0.isEnabled
+            }), let action = settingsItem.action,
+               NSApp.sendAction(action, to: settingsItem.target, from: settingsItem) {
+                return
+            }
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         } else {
             NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
@@ -675,23 +717,3 @@ extension utsname {
         sMachine == "arm64"
     }
 }
-
-enum AudioQuality: Int { case speechLow = 48, speech = 64, speechHigh = 96, normal = 128, good = 192, high = 256, extreme = 320 }
-
-enum AudioChannels: Int { case mono = 1, stereo = 2 }
-
-enum AudioFormat: String { case aac, alac, flac, opus, mp3 }
-
-enum VideoFormat: String { case mov, mp4 }
-
-enum PixFormat: String { case delault, yuv420p8v, yuv420p8f, yuv420p10v, yuv420p10f, bgra32 }
-
-enum ColSpace: String { case delault, srgb, p3, bt709, bt2020 }
-
-enum Encoder: String { case h264, h265 }
-
-enum VideoBitrate: Int { case auto = 0, kbps50 = 50, kbps75 = 75, kbps100 = 100, kbps150 = 150, kbps200 = 200, kbps300 = 300, kbps500 = 500, kbps800 = 800, kbps1000 = 1000 }
-
-enum StreamType: Int { case screen, window, windows, application, screenarea, systemaudio, idevice, camera }
-
-enum BackgroundType: String { case wallpaper, clear, black, white, red, green, yellow, orange, gray, blue, custom }

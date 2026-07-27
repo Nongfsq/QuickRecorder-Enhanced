@@ -1,4 +1,5 @@
 import Foundation
+import ArchiveJobCore
 
 enum AV1ArchiveAudioMode: String, CaseIterable, Identifiable {
     case copy
@@ -60,21 +61,17 @@ struct AV1ArchivePreset {
     }
 }
 
-enum ArchiveJobStatus: String {
-    case preparing
-    case runtimeMissing
-    case compressing
-    case verifying
-    case completed
-    case failed
-    case cancelled
+typealias ArchiveJobStatus = ArchiveJobState
 
+extension ArchiveJobState {
     var displayName: String {
         switch self {
         case .preparing: return "Preparing"
         case .runtimeMissing: return "FFmpeg runtime missing"
         case .compressing: return "Compressing"
         case .verifying: return "Verifying"
+        case .cancelling: return "Cancelling"
+        case .interrupted: return "Archive Interrupted"
         case .completed: return "Archive Complete"
         case .failed: return "Archive Failed"
         case .cancelled: return "Archive Cancelled"
@@ -96,10 +93,13 @@ struct ArchiveJob: Identifiable {
     var sourceSizeBytes: Int64?
     var outputSizeBytes: Int64?
     var runtimeDescription: String?
+    var command: [String]?
+    var validation: [String: Any]?
     var startedAt: Date
+    var updatedAt: Date
     var endedAt: Date?
 
     var isRunning: Bool {
-        status == .preparing || status == .compressing || status == .verifying
+        status.isRunning
     }
 }

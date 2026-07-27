@@ -1,9 +1,24 @@
 import Foundation
+import Darwin
 
 struct ProcessRunResult {
     let exitCode: Int32
     let stdout: String
     let stderr: String
+}
+
+enum ArchiveSubprocessError: LocalizedError {
+    case cancelled
+    case timedOut(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .cancelled:
+            return "Archive operation cancelled."
+        case .timedOut(let executable):
+            return "Archive subprocess timed out: \(executable)"
+        }
+    }
 }
 
 enum FFmpegRuntimeError: LocalizedError {
@@ -75,7 +90,12 @@ struct FFmpegRuntime {
         }
     }
 
-    static func run(_ executableURL: URL, arguments: [String]) throws -> ProcessRunResult {
+    static func run(
+        _ executableURL: URL,
+        arguments: [String],
+        timeout: TimeInterval = 300,
+        cancellationRequested: () -> Bool = { false }
+    ) throws -> ProcessRunResult {
         let process = Process()
         process.launchPath = executableURL.path
         process.arguments = arguments
@@ -102,12 +122,42 @@ struct FFmpegRuntime {
         }
 
         try process.run()
-        process.waitUntilExit()
+        let deadline = Date().addingTimeInterval(timeout)
+        var executionError: ArchiveSubprocessError?
+        while process.isRunning {
+            if cancellationRequested() {
+                terminate(process, forceAfter: 1)
+                executionError = .cancelled
+                break
+            }
+            if Date() >= deadline {
+                terminate(process, forceAfter: 1)
+                executionError = .timedOut(executableURL.lastPathComponent)
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
         group.wait()
+        if let executionError {
+            throw executionError
+        }
 
         let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
         let stderr = String(data: stderrData, encoding: .utf8) ?? ""
         return ProcessRunResult(exitCode: process.terminationStatus, stdout: stdout, stderr: stderr)
+    }
+
+    private static func terminate(_ process: Process, forceAfter delay: TimeInterval) {
+        guard process.isRunning else { return }
+        process.terminate()
+        let deadline = Date().addingTimeInterval(delay)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        if process.isRunning {
+            Darwin.kill(process.processIdentifier, SIGKILL)
+        }
+        process.waitUntilExit()
     }
 
     private static func runtimeCandidates() -> [(ffmpeg: URL, ffprobe: URL, description: String, manifest: URL?)] {

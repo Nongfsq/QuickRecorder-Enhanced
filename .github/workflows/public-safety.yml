@@ -18,3 +18,9 @@ jobs:
         run: sh Scripts/check-public-tree.sh
       - name: Test RNNoise package
         run: swift test --package-path Packages/RNNoiseProcessor
+      - name: Test archive job domain
+        run: swift test --package-path Packages/ArchiveJobCore
+      - name: Test recording domain
+        run: swift test --package-path Packages/RecordingDomain
+      - name: Test window placement policy
+        run: swift test --package-path Packages/WindowPlacementCore

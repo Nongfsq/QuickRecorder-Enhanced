@@ -155,6 +155,7 @@ struct qmaPlayerView: View {
         }
         .background(WindowAccessor(onWindowOpen: { w in
             guard let w = w else { return }
+            WindowPlacementCoordinator.shared.register(w, role: .document)
             w.setContentSize(CGSize(width: 400, height: 100))
             w.isMovableByWindowBackground = true
             w.titlebarAppearsTransparent = true
