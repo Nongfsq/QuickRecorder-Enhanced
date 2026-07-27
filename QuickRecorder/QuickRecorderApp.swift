@@ -457,9 +457,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     
     func openSettingPanel() {
         NSApp.activate(ignoringOtherApps: true)
-        if #available(macOS 14, *) {
-            NSApp.mainMenu?.items.first?.submenu?.item(at: 3)?.performAction()
-        } else if #available(macOS 13, *) {
+        if #available(macOS 13, *) {
+            if let settingsItem = NSApp.mainMenu?.items.first?.submenu?.items.first(where: {
+                $0.keyEquivalent == "," &&
+                $0.keyEquivalentModifierMask.contains(.command) &&
+                $0.isEnabled
+            }), let action = settingsItem.action,
+               NSApp.sendAction(action, to: settingsItem.target, from: settingsItem) {
+                return
+            }
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         } else {
             NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
