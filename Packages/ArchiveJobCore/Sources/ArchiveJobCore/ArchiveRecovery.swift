@@ -32,15 +32,21 @@ public enum ArchiveRecoveryClassifier {
         outputExists: Bool,
         temporaryOutputExists: Bool
     ) -> ArchiveRecoveryDisposition {
+        if status == .cancelled {
+            return .noAction
+        }
         if status == .completed {
-            return outputExists ? .alreadyCompleted : .completedOutputMissing
+            if outputExists { return .alreadyCompleted }
+            return sourceExists ? .completedOutputMissing : .sourceMissing
+        }
+        guard sourceExists else {
+            return outputExists ? .outputConflict : .sourceMissing
         }
         if outputExists {
             return status.becomesInterruptedWithoutWorker || status == .interrupted
                 ? .validateFinalOutput
                 : .outputConflict
         }
-        guard sourceExists else { return .sourceMissing }
         if temporaryOutputExists { return .validateTemporaryOutput }
         if status.becomesInterruptedWithoutWorker || status == .interrupted {
             return .restartEncoding

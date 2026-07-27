@@ -274,6 +274,14 @@
 "Validate Recovered Archive" = "驗證已恢復的封存";
 "Restart Compression" = "重新開始壓縮";
 "Abandon Archive Job" = "放棄封存工作";
+"Remove Recovery Record" = "移除恢復記錄";
+"Clear All Recovery Records" = "清空全部恢復記錄";
+"Clear All Recovery Records?" = "要清空全部恢復記錄嗎？";
+"This removes recovery records, logs, and task-owned temporary files. Original recordings and completed archives are not deleted." = "這會移除恢復記錄、日誌和工作自己的暫存檔案，不會刪除原始錄影或已完成的正式封存。";
+"The original recording no longer exists. This task cannot be restarted." = "原始錄影已不存在，無法重新開始此工作。";
+"Unable to remove recovery record" = "無法移除恢復記錄";
+"Recovery record directory is invalid." = "恢復記錄目錄無效。";
+"Refusing to remove a recovery record outside its task directory." = "拒絕移除工作目錄之外的恢復記錄。";
 "Archive interrupted when QuickRecorder stopped" = "QuickRecorder 停止時封存被中斷";
 "Review this archive before restarting it." = "重新開始前請檢查此封存工作。";
 "Archive recovery needs attention" = "封存恢復需要處理";

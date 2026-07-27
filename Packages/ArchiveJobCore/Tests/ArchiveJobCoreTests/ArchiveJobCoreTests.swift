@@ -106,6 +106,42 @@ final class ArchiveJobCoreTests: XCTestCase {
         )
     }
 
+    func testCancelledJobNeverReturnsToRecoveryList() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .cancelled,
+                sourceExists: false,
+                outputExists: false,
+                temporaryOutputExists: false
+            ),
+            .noAction
+        )
+    }
+
+    func testCompletedJobWithDeletedSourceCannotRestart() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .completed,
+                sourceExists: false,
+                outputExists: false,
+                temporaryOutputExists: false
+            ),
+            .sourceMissing
+        )
+    }
+
+    func testInterruptedJobWithDeletedSourceAndOutputDoesNotValidateWithoutSource() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .interrupted,
+                sourceExists: false,
+                outputExists: true,
+                temporaryOutputExists: false
+            ),
+            .outputConflict
+        )
+    }
+
     private func makeManifest(status: ArchiveJobState) -> ArchiveJobManifest {
         ArchiveJobManifest(
             id: UUID(),

@@ -8,6 +8,7 @@ final class ArchiveCompressionService: ObservableObject {
 
     @Published private(set) var jobsByID: [UUID: ArchiveJob] = [:]
     @Published private(set) var manifestLoadIssues: [ArchiveManifestLoadIssue] = []
+    @Published private(set) var recoveryCleanupError: String?
 
     private var activeJobIDBySource: [String: UUID] = [:]
     private var processes: [UUID: Process] = [:]
@@ -141,23 +142,48 @@ final class ArchiveCompressionService: ObservableObject {
         }
     }
 
-    func abandon(jobID: UUID) {
+    func removeRecoveryJob(jobID: UUID) {
         guard var job = jobsByID[jobID], !job.isRunning else { return }
         do {
             try ensureTemporaryOutputIsInactive(job)
-            try removeTemporaryOutputIfOwned(job)
-            job.status = .cancelled
-            job.detail = "Archive recovery abandoned"
-            job.errorMessage = nil
-            job.progress = nil
-            job.updatedAt = Date()
-            job.endedAt = Date()
-            try persistAndPublish(job)
+            try removeTaskDirectory(job.logDirectory, jobID: job.id)
+            jobsByID[jobID] = nil
+            if activeJobIDBySource[job.sourceURL.path] == jobID {
+                activeJobIDBySource[job.sourceURL.path] = nil
+            }
+            recoveryCleanupError = nil
         } catch {
             job.errorMessage = error.localizedDescription
-            job.detail = "Archive recovery needs attention"
+            job.detail = "Unable to remove recovery record"
             job.updatedAt = Date()
-            persistOrPublishFailure(job)
+            jobsByID[jobID] = job
+            recoveryCleanupError = error.localizedDescription
+        }
+    }
+
+    func removeManifestLoadIssue(issueID: UUID) {
+        guard let issue = manifestLoadIssues.first(where: { $0.id == issueID }) else { return }
+        do {
+            let directory = issue.manifestURL.deletingLastPathComponent()
+            guard let jobID = UUID(uuidString: directory.lastPathComponent) else {
+                throw NSError(domain: "QuickRecorderArchive", code: 46, userInfo: [NSLocalizedDescriptionKey: "Recovery record directory is invalid."])
+            }
+            try removeTaskDirectory(directory, jobID: jobID)
+            manifestLoadIssues.removeAll { $0.id == issueID }
+            recoveryCleanupError = nil
+        } catch {
+            recoveryCleanupError = error.localizedDescription
+        }
+    }
+
+    func clearAllRecoveryRecords() {
+        let jobIDs = recoveryJobs.map(\.id)
+        let issueIDs = manifestLoadIssues.map(\.id)
+        for jobID in jobIDs {
+            removeRecoveryJob(jobID: jobID)
+        }
+        for issueID in issueIDs {
+            removeManifestLoadIssue(issueID: issueID)
         }
     }
 
@@ -578,6 +604,36 @@ final class ArchiveCompressionService: ObservableObject {
         let loaded = ArchiveManifestStore.loadJobs()
         manifestLoadIssues = loaded.issues
         for var job in loaded.jobs {
+            if job.status == .cancelled {
+                do {
+                    try ensureTemporaryOutputIsInactive(job)
+                    try removeTaskDirectory(job.logDirectory, jobID: job.id)
+                } catch {
+                    manifestLoadIssues.append(
+                        ArchiveManifestLoadIssue(
+                            manifestURL: job.logDirectory.appendingPathComponent("manifest.json"),
+                            message: error.localizedDescription
+                        )
+                    )
+                }
+                continue
+            }
+            let sourceExists = fd.fileExists(atPath: job.sourceURL.path)
+            let outputExists = fd.fileExists(atPath: job.outputURL.path)
+            let temporaryOutputExists = fd.fileExists(atPath: job.tempOutputURL.path)
+            if !sourceExists && !outputExists && !temporaryOutputExists {
+                do {
+                    try removeTaskDirectory(job.logDirectory, jobID: job.id)
+                } catch {
+                    manifestLoadIssues.append(
+                        ArchiveManifestLoadIssue(
+                            manifestURL: job.logDirectory.appendingPathComponent("manifest.json"),
+                            message: error.localizedDescription
+                        )
+                    )
+                }
+                continue
+            }
             if job.status.becomesInterruptedWithoutWorker {
                 job.status = .interrupted
                 job.progress = nil
@@ -632,6 +688,21 @@ final class ArchiveCompressionService: ObservableObject {
             throw NSError(domain: "QuickRecorderArchive", code: 43, userInfo: [NSLocalizedDescriptionKey: "Refusing to remove an archive file outside its task directory."])
         }
         try fd.removeItem(at: job.tempOutputURL)
+    }
+
+    private func removeTaskDirectory(_ directory: URL, jobID: UUID) throws {
+        let expectedDirectory = ArchivePaths.jobsDirectory
+            .appendingPathComponent(jobID.uuidString, isDirectory: true)
+            .standardizedFileURL
+        guard directory.standardizedFileURL.path == expectedDirectory.path else {
+            throw NSError(
+                domain: "QuickRecorderArchive",
+                code: 47,
+                userInfo: [NSLocalizedDescriptionKey: "Refusing to remove a recovery record outside its task directory."]
+            )
+        }
+        guard fd.fileExists(atPath: directory.path) else { return }
+        try fd.removeItem(at: directory)
     }
 
     private func ensureTemporaryOutputIsInactive(_ job: ArchiveJob) throws {

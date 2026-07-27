@@ -27,8 +27,11 @@ manifest, and validates streams, duration, timestamps, and decode behavior.
 
 The development line is adding versioned manifests, explicit interrupted-job
 classification, task-owned temporary paths, recovery review, and coordinated
-quit behavior. These behaviors remain development state until the validation
-gates in [testing.md](testing.md) pass.
+quit behavior. Recovery records can be removed individually or cleared in one
+action without deleting source recordings or completed archives; cancelled and
+dead missing-file records do not reopen the recovery window. These behaviors
+remain development state until the validation gates in [testing.md](testing.md)
+pass.
 
 Generated FFmpeg binaries are not stored in Git. Developers can supply a local
 runtime explicitly or build a package with the scripts under `Tools/Archive`.
