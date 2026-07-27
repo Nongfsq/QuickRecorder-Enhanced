@@ -93,12 +93,20 @@ extension Scene {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOutput, AVCaptureVideoDataOutputSampleBufferDelegate  {
+    private static weak var installedInstance: AppDelegate?
+
     static var shared: AppDelegate {
-        guard let delegate = NSApp.delegate as? AppDelegate else {
+        guard let delegate = installedInstance else {
             preconditionFailure("The SwiftUI lifecycle has not installed AppDelegate yet.")
         }
         return delegate
     }
+
+    override init() {
+        super.init()
+        Self.installedInstance = self
+    }
+
     private var archiveTerminationPending = false
     let recordingSession = RecordingSessionCoordinator()
     var filter: SCContentFilter?
