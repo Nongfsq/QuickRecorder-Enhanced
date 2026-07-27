@@ -22,7 +22,18 @@ updates signed by the same identity should retain authorization.
 
 ## Public binaries
 
-Do not publish an application binary until all of the following are complete:
+Every published GitHub Release must include a DMG. If the DMG has not passed
+the release checks, keep the Release in Draft instead of publishing a
+source-only version.
+
+An Alpha may use a project-specific self-signing identity and remain
+unnotarized when the DMG, release notes, and checksum clearly identify it as an
+experimental installer. It must use the fork-owned Bundle ID, contain a
+Universal app, omit any architecture-limited optional runtime, and pass static
+signature and mounted-image validation.
+
+Do not present an installer as generally supported until all of the following
+are complete:
 
 1. a Bundle ID owned by this project;
 2. Developer ID Application signing;

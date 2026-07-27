@@ -35,14 +35,14 @@ through the noise-reduction pipeline.
 
 ## Status
 
-The current `v1.7.0-alpha.2` release is a **source checkpoint**. It does not
-include a DMG because Developer ID signing, Apple notarization, reproducible
-Universal FFmpeg packaging, complete runtime notices, and the fork-owned update
-feed are not yet complete.
+The current `v1.7.0-alpha.2` release includes an **experimental Universal
+DMG**. It uses the project's stable self-signing identity, but it is not
+Developer ID signed or Apple-notarized. macOS may require **Open** from the
+Finder context menu on first launch.
 
-The earlier `v1.7.0-alpha.1` release retains its explicitly experimental,
-self-signed and unnotarized DMG for historical hands-on testing. It is not the
-current supported installation path.
+The optional bundled FFmpeg runtime is omitted from this Alpha installer until
+its Universal packaging and notices are release-ready. AV1 archive jobs require
+a separately installed compatible FFmpeg in the meantime.
 
 The project now has its own version line and release page. The legacy upstream
 Sparkle feed is disabled; future binary updates will use a fork-owned signing
@@ -70,10 +70,10 @@ authorization. See [Building and signing](docs/building.md).
 Fork releases start at `v1.7.0-alpha.1`. Upstream tags and release artifacts
 are not republished as releases of this project.
 
-Alpha releases may include an explicitly labeled, self-signed and unnotarized
-DMG for hands-on testing. A generally supported installer still requires
-Developer ID signing, notarization, complete runtime notices, and a fork-owned
-update key.
+Every published release includes a DMG; a release whose DMG is not ready stays
+in Draft. Alpha DMGs may be explicitly labeled as self-signed and unnotarized
+for hands-on testing. A generally supported installer still requires Developer
+ID signing, notarization, complete runtime notices, and a fork-owned update key.
 
 ## License and attribution
 

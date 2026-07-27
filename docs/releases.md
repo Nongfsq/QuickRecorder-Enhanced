@@ -7,10 +7,11 @@ of this project, and are not copied into this repository.
 ## Current phase
 
 Alpha releases provide a stable review point for the fork's code and
-documentation. They may also carry an experimental DMG when its signing,
-notarization, architecture, and bundled-runtime limitations are stated in the
-release notes. Such a DMG is for hands-on testing and is not a generally
-supported installer.
+documentation. Every published Release must carry a DMG; if the DMG is not
+ready, the Release remains a Draft. An Alpha may carry an experimental DMG when
+its signing, notarization, architecture, and bundled-runtime limitations are
+stated in the release notes. Such a DMG is for hands-on testing and is not a
+generally supported installer.
 
 ## Binary release gate
 
