@@ -1,6 +1,24 @@
 # Changelog
 
-## 1.7.0-alpha.2
+## Unreleased
+
+- Unified writer, microphone, pause-timeline, and teardown ownership behind one
+  serial recording-session media owner.
+- Added typed, awaitable recording finalization for screen capture, audio
+  remix, MP3, QMA, and iDevice backends.
+- Made application termination wait for active recording finalization before
+  deciding whether to wait for or cancel newly created archive work.
+- Hardened archive cancellation, recovery validation, publish commit ordering,
+  and FFmpeg child lifetime handling.
+- Prevented local ignored FFmpeg binaries from entering Release application
+  resources until a reproducible Universal runtime is ready.
+
+## 1.7.0-alpha.2 (withdrawn)
+
+This prerelease was withdrawn because its binary preceded the completed Stage 0
+recording-finalization and archive-exit fixes. The history below records what
+the withdrawn checkpoint contained; it is not the current downloadable
+baseline.
 
 - Added durable archive manifests, interrupted-job recovery, stale-task cleanup,
   and safer application termination while archive work is active.

@@ -272,6 +272,7 @@
 "Archive manifest needs attention" = "封存工作清單需要處理";
 "Validate Temporary Archive" = "驗證暫存封存";
 "Validate Recovered Archive" = "驗證已恢復的封存";
+"Cancel Validation" = "取消驗證";
 "Restart Compression" = "重新開始壓縮";
 "Abandon Archive Job" = "放棄封存工作";
 "Remove Recovery Record" = "移除恢復記錄";

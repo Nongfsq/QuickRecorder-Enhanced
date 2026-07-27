@@ -197,13 +197,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
         if let monitor = mouseMonitor { NSEvent.removeMonitor(monitor); mouseMonitor = nil }
     }
     
-    func applicationWillTerminate(_ aNotification: Notification) {
-        if SCContext.stream != nil { SCContext.stopRecording() }
-    }
+    func applicationWillTerminate(_ aNotification: Notification) {}
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let archiveService = ArchiveCompressionService.shared
         if archiveTerminationPending { return .terminateLater }
+        if recordingSession.isActive {
+            archiveTerminationPending = true
+            let recordingFinished = { [weak self] in
+                guard let self else { return }
+                self.archiveTerminationPending = false
+                self.resolveDeferredArchiveTermination(sender)
+            }
+            if recordingSession.request?.mode == .idevice {
+                AVOutputClass.shared.stopRecording(completion: recordingFinished)
+            } else {
+                SCContext.stopRecording(completion: recordingFinished)
+            }
+            return .terminateLater
+        }
         guard archiveService.hasRunningJobs else { return .terminateNow }
 
         let count = archiveService.runningJobCount
@@ -234,6 +246,43 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
         default:
             archiveService.resumeAcceptingJobs()
             return .terminateCancel
+        }
+    }
+
+    private func resolveDeferredArchiveTermination(_ sender: NSApplication) {
+        let archiveService = ArchiveCompressionService.shared
+        guard archiveService.hasRunningJobs else {
+            sender.reply(toApplicationShouldTerminate: true)
+            return
+        }
+
+        let count = archiveService.runningJobCount
+        let alert = createAlert(
+            title: "Archive compression is still running",
+            message: String(format: "QuickRecorder is processing %d archive job(s). What would you like to do?".local, count),
+            button1: "Quit After Archives Finish",
+            button2: "Cancel Archives and Quit",
+            width: 430
+        )
+        alert.addButton(withTitle: "Don't Quit".local)
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            archiveTerminationPending = true
+            archiveService.waitForAllJobsToFinish { [weak self] in
+                self?.archiveTerminationPending = false
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+        case .alertSecondButtonReturn:
+            archiveTerminationPending = true
+            archiveService.cancelAllAndWait { [weak self] in
+                self?.archiveTerminationPending = false
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+        default:
+            archiveTerminationPending = false
+            archiveService.resumeAcceptingJobs()
+            sender.reply(toApplicationShouldTerminate: false)
         }
     }
     

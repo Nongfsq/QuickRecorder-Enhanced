@@ -35,6 +35,9 @@ public enum ArchiveRecoveryClassifier {
         if status == .cancelled {
             return .noAction
         }
+        if status.isRunning {
+            return .noAction
+        }
         if status == .completed {
             if outputExists { return .alreadyCompleted }
             return sourceExists ? .completedOutputMissing : .sourceMissing
@@ -48,10 +51,45 @@ public enum ArchiveRecoveryClassifier {
                 : .outputConflict
         }
         if temporaryOutputExists { return .validateTemporaryOutput }
-        if status.becomesInterruptedWithoutWorker || status == .interrupted {
+        if status == .interrupted {
+            return .restartEncoding
+        }
+        if status == .runtimeMissing || status == .failed {
             return .restartEncoding
         }
         return .noAction
+    }
+}
+
+public enum ArchiveRecoveryRequest: Equatable {
+    case restartEncoding
+    case validateTemporaryOutput
+    case validateFinalOutput
+}
+
+public enum ArchiveRecoveryTransitionDecision: Equatable {
+    case start
+    case rejectAlreadyRunning
+    case rejectIncompatibleDisposition
+}
+
+public enum ArchiveRecoveryTransition {
+    public static func decide(
+        status: ArchiveJobState,
+        disposition: ArchiveRecoveryDisposition,
+        request: ArchiveRecoveryRequest
+    ) -> ArchiveRecoveryTransitionDecision {
+        guard !status.isRunning else { return .rejectAlreadyRunning }
+        switch request {
+        case .restartEncoding:
+            return disposition == .restartEncoding || disposition == .completedOutputMissing
+                ? .start
+                : .rejectIncompatibleDisposition
+        case .validateTemporaryOutput:
+            return disposition == .validateTemporaryOutput ? .start : .rejectIncompatibleDisposition
+        case .validateFinalOutput:
+            return disposition == .validateFinalOutput ? .start : .rejectIncompatibleDisposition
+        }
     }
 }
 

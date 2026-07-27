@@ -19,6 +19,7 @@ architecture decisions, and release requirements.
 - [Technology stack assessment](architecture/technology-stack.md)
 - [Target architecture blueprint](architecture/target-architecture.md)
 - [Architecture refactor plan and tasks](architecture/refactor-plan.md)
+- [Execution plans](plans/README.md)
 - [Architecture decision records](decisions/README.md)
 
 ## Component and tool references

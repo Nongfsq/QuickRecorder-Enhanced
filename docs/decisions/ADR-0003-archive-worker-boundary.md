@@ -1,6 +1,6 @@
 # ADR-0003: Archive Worker Boundary
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -9,17 +9,21 @@ force quit may leave child-process ownership ambiguous. Continuing archives
 after the UI exits requires a different lifecycle contract than orderly
 wait-or-cancel behavior.
 
-## Proposed decision
+## Decision
 
-First choose the product contract:
+QuickRecorder uses the **wait or cancel** contract for the current architecture:
 
-- **Wait or cancel:** keep archive execution in-process, own the process group,
-  make cancellation bounded, and recover only after proving no worker lives.
-- **Continue after exit:** add a separately signed Swift executable or XPC/helper
-  that exclusively owns process groups and renewable job leases. The UI is a
-  client of durable manifests/events.
+- archive execution stays in-process;
+- orderly application termination waits for completion or performs bounded
+  cancellation;
+- archive workers do not intentionally continue after the UI exits;
+- crash and force-quit recovery may validate or restart durable jobs only after
+  the prior process lifetime has ended.
 
-Do not use Rust merely to create this boundary.
+Continuation after exit remains a future product decision. If it becomes a
+requirement, use a separately signed Swift executable, XPC service, or helper
+that exclusively owns process groups and renewable job leases. Do not use Rust
+merely to create this boundary.
 
 ## Rationale
 
@@ -41,5 +45,5 @@ recovery actions, cancellation deadlines, and final output ownership.
 
 ## Revisit trigger
 
-Accept one branch when product requirements decide whether work continues after
-the UI process exits.
+Revisit if users require archive work to continue after QuickRecorder quits, or
+if measured cancellation/recovery reliability cannot meet the current contract.

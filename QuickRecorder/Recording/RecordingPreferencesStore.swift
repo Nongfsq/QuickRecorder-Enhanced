@@ -1,4 +1,5 @@
 import Foundation
+import RecordingDomain
 
 struct RecordingPreferencesStore {
     private let defaults: UserDefaults
@@ -45,57 +46,17 @@ struct RecordingPreferencesStore {
     }
 
     func makeRequest(legacyCaptureType: String, fastStart: Bool) -> RecordingRequest? {
-        guard let mode = StreamType(legacyCaptureType: legacyCaptureType),
-              let outputDirectory = defaults.string(forKey: "saveDirectory") else { return nil }
-        return RecordingRequest(
-            mode: mode,
-            settings: snapshot(outputDirectory: outputDirectory),
+        RecordingSettingsDefaultsAdapter(defaults: defaults).makeRequest(
+            legacyCaptureType: legacyCaptureType,
             fastStart: fastStart
         )
     }
 
+    func makeRequest(mode: StreamType, fastStart: Bool = false) -> RecordingRequest? {
+        RecordingSettingsDefaultsAdapter(defaults: defaults).makeRequest(mode: mode, fastStart: fastStart)
+    }
+
     func snapshot(outputDirectory: String) -> RecordingSettingsSnapshot {
-        RecordingSettingsSnapshot(
-            outputDirectory: outputDirectory,
-            frameRate: defaults.integer(forKey: "frameRate"),
-            resolutionScale: defaults.integer(forKey: "highRes"),
-            videoQuality: defaults.double(forKey: "videoQuality"),
-            videoBitrate: enumValue("videoBitrate", fallback: .auto),
-            adaptiveVFR: defaults.bool(forKey: "adaptiveVFR"),
-            videoFormat: enumValue("videoFormat", fallback: .mp4),
-            pixelFormat: enumValue("pixelFormat", fallback: .delault),
-            encoder: enumValue("encoder", fallback: .h264),
-            recordHDR: defaults.bool(forKey: "recordHDR"),
-            withAlpha: defaults.bool(forKey: "withAlpha"),
-            audioFormat: enumValue("audioFormat", fallback: .aac),
-            audioQuality: enumValue("audioQuality", fallback: .high),
-            audioChannels: enumValue("audioChannels", fallback: .stereo),
-            recordsMicrophone: defaults.bool(forKey: "recordMic"),
-            recordsSystemAudio: defaults.bool(forKey: "recordWinSound"),
-            remuxesAudio: defaults.bool(forKey: "remuxAudio"),
-            microphoneDevice: defaults.string(forKey: "micDevice") ?? "default",
-            enablesAEC: defaults.bool(forKey: "enableAEC"),
-            microphoneNoiseReduction: defaults.bool(forKey: "microphoneNoiseReduction"),
-            aecLevel: defaults.string(forKey: "AECLevel") ?? "mid",
-            background: enumValue("background", fallback: .wallpaper),
-            showsMouse: defaults.bool(forKey: "showMouse"),
-            highlightsMouse: defaults.bool(forKey: "highlightMouse"),
-            includesMenuBar: defaults.bool(forKey: "includeMenuBar"),
-            hidesDesktopFiles: defaults.bool(forKey: "hideDesktopFiles"),
-            hidesSelf: defaults.bool(forKey: "hideSelf"),
-            hidesControlCenter: defaults.bool(forKey: "hideCCenter"),
-            preventsSleep: defaults.bool(forKey: "preventSleep"),
-            showsPreview: defaults.bool(forKey: "showPreview"),
-            trimsAfterRecording: defaults.bool(forKey: "trimAfterRecord"),
-            presenterOverlaySafeDelay: defaults.integer(forKey: "poSafeDelay")
-        )
-    }
-
-    private func enumValue<T: RawRepresentable>(_ key: String, fallback: T) -> T where T.RawValue == String {
-        defaults.string(forKey: key).flatMap(T.init(rawValue:)) ?? fallback
-    }
-
-    private func enumValue<T: RawRepresentable>(_ key: String, fallback: T) -> T where T.RawValue == Int {
-        T(rawValue: defaults.integer(forKey: key)) ?? fallback
+        RecordingSettingsDefaultsAdapter(defaults: defaults).snapshot(outputDirectory: outputDirectory)
     }
 }

@@ -121,6 +121,109 @@ public enum AdaptiveVFRPolicy {
     }
 }
 
+public struct CaptureDimensionSize: Equatable, Sendable {
+    public var width: Double
+    public var height: Double
+
+    public init(width: Double, height: Double) {
+        self.width = width
+        self.height = height
+    }
+}
+
+public struct CaptureDimensionPolicyInput: Equatable, Sendable {
+    public var mode: StreamType
+    public var modernFilterSize: CaptureDimensionSize?
+    public var legacyDisplaySize: CaptureDimensionSize?
+    public var legacyWindowSize: CaptureDimensionSize?
+    public var selectedAreaSize: CaptureDimensionSize?
+    public var pointPixelScale: Double
+    public var resolutionScale: Int
+
+    public init(
+        mode: StreamType,
+        modernFilterSize: CaptureDimensionSize? = nil,
+        legacyDisplaySize: CaptureDimensionSize? = nil,
+        legacyWindowSize: CaptureDimensionSize? = nil,
+        selectedAreaSize: CaptureDimensionSize? = nil,
+        pointPixelScale: Double,
+        resolutionScale: Int
+    ) {
+        self.mode = mode
+        self.modernFilterSize = modernFilterSize
+        self.legacyDisplaySize = legacyDisplaySize
+        self.legacyWindowSize = legacyWindowSize
+        self.selectedAreaSize = selectedAreaSize
+        self.pointPixelScale = pointPixelScale
+        self.resolutionScale = resolutionScale
+    }
+}
+
+public struct CaptureDimensions: Equatable, Sendable {
+    public let width: Int
+    public let height: Int
+
+    public init(width: Int, height: Int) {
+        self.width = width
+        self.height = height
+    }
+}
+
+public enum CaptureDimensionPolicy {
+    public static func evaluate(_ input: CaptureDimensionPolicyInput) -> CaptureDimensions? {
+        if input.mode == .systemaudio {
+            return CaptureDimensions(width: 2, height: 2)
+        }
+
+        let logicalSize: CaptureDimensionSize?
+        if input.mode == .screenarea, let area = input.selectedAreaSize {
+            logicalSize = area
+        } else if let modern = input.modernFilterSize {
+            logicalSize = modern
+        } else if input.mode == .window {
+            logicalSize = input.legacyWindowSize
+        } else {
+            logicalSize = input.legacyDisplaySize
+        }
+
+        guard let logicalSize,
+              logicalSize.width.isFinite, logicalSize.height.isFinite,
+              logicalSize.width > 0, logicalSize.height > 0 else { return nil }
+        let pixelMultiplier = input.resolutionScale == 2 ? max(1, input.pointPixelScale) : 1
+        return CaptureDimensions(
+            width: max(2, Int(logicalSize.width * pixelMultiplier)),
+            height: max(2, Int(logicalSize.height * pixelMultiplier))
+        )
+    }
+}
+
+public struct AudioRenderTrackDuration: Equatable, Sendable {
+    public var frameCount: Int64
+    public var sampleRate: Double
+
+    public init(frameCount: Int64, sampleRate: Double) {
+        self.frameCount = frameCount
+        self.sampleRate = sampleRate
+    }
+}
+
+public enum AudioRenderDurationPolicy {
+    public static func targetFrameCount(
+        tracks: [AudioRenderTrackDuration],
+        outputSampleRate: Double
+    ) -> Int64? {
+        guard outputSampleRate.isFinite, outputSampleRate > 0 else { return nil }
+        var maximumDuration: Double = 0
+        for track in tracks {
+            guard track.frameCount >= 0, track.sampleRate.isFinite, track.sampleRate > 0 else { return nil }
+            maximumDuration = max(maximumDuration, Double(track.frameCount) / track.sampleRate)
+        }
+        let target = ceil(maximumDuration * outputSampleRate)
+        guard target.isFinite, target <= Double(Int64.max) else { return nil }
+        return Int64(target)
+    }
+}
+
 public struct PauseTimeline: Equatable, Sendable {
     public private(set) var accumulatedOffset: TimeInterval
     public private(set) var lastEmittedTime: TimeInterval?
@@ -148,17 +251,21 @@ public struct PauseTimeline: Equatable, Sendable {
         awaitingResumeSample = true
     }
 
-    public mutating func adjustedTime(for sourceTime: TimeInterval) -> TimeInterval? {
+    public mutating func adjustedTime(
+        for sourceTime: TimeInterval,
+        minimumStep: TimeInterval = 0.000_000_001
+    ) -> TimeInterval? {
         guard sourceTime.isFinite, !isPaused else { return nil }
+        let minimumStep = minimumStep.isFinite ? max(0.000_000_001, minimumStep) : 0.000_000_001
 
         if awaitingResumeSample, let lastEmittedTime {
-            let candidate = sourceTime - accumulatedOffset
-            accumulatedOffset += max(0, candidate - lastEmittedTime)
+            let nextTime = lastEmittedTime + minimumStep
+            accumulatedOffset = max(0, sourceTime - nextTime)
             awaitingResumeSample = false
         }
 
         let adjusted = sourceTime - accumulatedOffset
-        guard lastEmittedTime.map({ adjusted >= $0 }) ?? true else { return nil }
+        guard lastEmittedTime.map({ adjusted > $0 }) ?? true else { return nil }
         lastEmittedTime = adjusted
         return adjusted
     }

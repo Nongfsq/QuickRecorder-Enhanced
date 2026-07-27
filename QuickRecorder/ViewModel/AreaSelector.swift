@@ -224,7 +224,7 @@ struct AreaSelector: View {
         window.orderFront(self)
         appDelegate.createCountdownPanel(screen: screen) {
             SCContext.autoStop = autoStop
-            appDelegate.prepRecord(type: "area", screens: screen, windows: nil, applications: nil)
+            appDelegate.prepRecord(mode: .screenarea, screens: screen, windows: nil, applications: nil)
         }
     }
 }

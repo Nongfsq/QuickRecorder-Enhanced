@@ -151,7 +151,7 @@ final class RecordingDomainTests: XCTestCase {
         XCTAssertFalse(AdaptiveVFRPolicy.shouldSkip(hdr))
     }
 
-    func testPauseTimelineRemovesPausedGapAndKeepsMonotonicTime() {
+    func testPauseTimelineRemovesPausedGapAndKeepsMonotonicTime() throws {
         var timeline = PauseTimeline()
 
         XCTAssertEqual(timeline.adjustedTime(for: 10), 10)
@@ -159,18 +159,233 @@ final class RecordingDomainTests: XCTestCase {
         timeline.pause()
         XCTAssertNil(timeline.adjustedTime(for: 12))
         timeline.resume()
-        XCTAssertEqual(timeline.adjustedTime(for: 16), 11)
-        XCTAssertEqual(timeline.adjustedTime(for: 17), 12)
-        XCTAssertEqual(timeline.accumulatedOffset, 5)
+        XCTAssertEqual(try XCTUnwrap(timeline.adjustedTime(for: 16, minimumStep: 0.02)), 11.02, accuracy: 0.000_001)
+        XCTAssertEqual(try XCTUnwrap(timeline.adjustedTime(for: 17, minimumStep: 0.02)), 12.02, accuracy: 0.000_001)
+        XCTAssertEqual(timeline.accumulatedOffset, 4.98, accuracy: 0.000_001)
     }
 
     func testPauseTimelineRejectsOutOfOrderAndInvalidSamples() {
         var timeline = PauseTimeline()
 
         XCTAssertEqual(timeline.adjustedTime(for: 5), 5)
+        XCTAssertNil(timeline.adjustedTime(for: 5))
         XCTAssertNil(timeline.adjustedTime(for: 4))
         XCTAssertNil(timeline.adjustedTime(for: .infinity))
         XCTAssertEqual(timeline.lastEmittedTime, 5)
+    }
+
+    func testPauseTimelineResumeStepCanRepresentALowTimescaleTick() throws {
+        var timeline = PauseTimeline()
+
+        XCTAssertEqual(timeline.adjustedTime(for: 2), 2)
+        timeline.pause()
+        timeline.resume()
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.adjustedTime(for: 8, minimumStep: 0.1)),
+            2.1,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testUserDefaultsSuiteFixtureProducesFrozenSnapshotForScreenAndIDevice() throws {
+        let suiteName = "RecordingDomainTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("/tmp/fixture", forKey: "saveDirectory")
+        defaults.set(30, forKey: "frameRate")
+        defaults.set(1, forKey: "highRes")
+        defaults.set(0.7, forKey: "videoQuality")
+        defaults.set(VideoBitrate.kbps800.rawValue, forKey: "videoBitrate")
+        defaults.set(VideoFormat.mov.rawValue, forKey: "videoFormat")
+        defaults.set(Encoder.h265.rawValue, forKey: "encoder")
+        defaults.set(true, forKey: "recordMic")
+        defaults.set(false, forKey: "recordWinSound")
+        defaults.set("Fixture Mic", forKey: "micDevice")
+        defaults.set(true, forKey: "showPreview")
+
+        let adapter = RecordingSettingsDefaultsAdapter(defaults: defaults)
+        let screen = try XCTUnwrap(adapter.makeRequest(mode: .screen))
+        let device = try XCTUnwrap(adapter.makeRequest(mode: .idevice))
+
+        XCTAssertEqual(screen.settings, device.settings)
+        XCTAssertEqual(device.mode, .idevice)
+        XCTAssertEqual(device.settings.outputDirectory, "/tmp/fixture")
+        XCTAssertEqual(device.settings.frameRate, 30)
+        XCTAssertEqual(device.settings.resolutionScale, 1)
+        XCTAssertEqual(device.settings.videoFormat, .mov)
+        XCTAssertEqual(device.settings.encoder, .h265)
+        XCTAssertTrue(device.settings.recordsMicrophone)
+        XCTAssertFalse(device.settings.recordsSystemAudio)
+        XCTAssertEqual(device.settings.microphoneDevice, "Fixture Mic")
+    }
+
+    func testTypedAndLegacyEntryAdaptersFreezeEquivalentRequests() throws {
+        let suiteName = "RecordingDomainTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("/tmp/fixture", forKey: "saveDirectory")
+        defaults.set(60, forKey: "frameRate")
+        defaults.set(2, forKey: "highRes")
+
+        let adapter = RecordingSettingsDefaultsAdapter(defaults: defaults)
+        for legacy in ["display", "window", "windows", "application", "area", "audio"] {
+            let mode = try XCTUnwrap(StreamType(legacyCaptureType: legacy))
+            let typed = try XCTUnwrap(adapter.makeRequest(mode: mode, fastStart: true))
+            let adapted = try XCTUnwrap(adapter.makeRequest(legacyCaptureType: legacy, fastStart: true))
+            XCTAssertEqual(typed.mode, adapted.mode, legacy)
+            XCTAssertEqual(typed.settings, adapted.settings, legacy)
+            XCTAssertEqual(typed.fastStart, adapted.fastStart, legacy)
+        }
+    }
+
+    func testCaptureDimensionPolicyCoversModernLegacyAreaAndAudio() {
+        XCTAssertEqual(
+            CaptureDimensionPolicy.evaluate(
+                .init(
+                    mode: .screen,
+                    modernFilterSize: .init(width: 1512, height: 982),
+                    pointPixelScale: 2,
+                    resolutionScale: 2
+                )
+            ),
+            CaptureDimensions(width: 3024, height: 1964)
+        )
+        XCTAssertEqual(
+            CaptureDimensionPolicy.evaluate(
+                .init(
+                    mode: .window,
+                    legacyDisplaySize: .init(width: 1920, height: 1080),
+                    legacyWindowSize: .init(width: 640, height: 480),
+                    pointPixelScale: 2,
+                    resolutionScale: 1
+                )
+            ),
+            CaptureDimensions(width: 640, height: 480)
+        )
+        XCTAssertEqual(
+            CaptureDimensionPolicy.evaluate(
+                .init(
+                    mode: .screenarea,
+                    modernFilterSize: .init(width: 1920, height: 1080),
+                    selectedAreaSize: .init(width: 400, height: 300),
+                    pointPixelScale: 2,
+                    resolutionScale: 2
+                )
+            ),
+            CaptureDimensions(width: 800, height: 600)
+        )
+        XCTAssertEqual(
+            CaptureDimensionPolicy.evaluate(
+                .init(mode: .systemaudio, pointPixelScale: 2, resolutionScale: 2)
+            ),
+            CaptureDimensions(width: 2, height: 2)
+        )
+    }
+
+    func testAudioRenderDurationPolicyUsesLongestTrackAcrossSampleRates() {
+        XCTAssertEqual(
+            AudioRenderDurationPolicy.targetFrameCount(
+                tracks: [
+                    .init(frameCount: 44_100, sampleRate: 44_100),
+                    .init(frameCount: 96_001, sampleRate: 48_000)
+                ],
+                outputSampleRate: 48_000
+            ),
+            96_001
+        )
+        XCTAssertEqual(
+            AudioRenderDurationPolicy.targetFrameCount(
+                tracks: [.init(frameCount: 44_101, sampleRate: 44_100)],
+                outputSampleRate: 48_000
+            ),
+            48_002
+        )
+    }
+
+    func testAudioRenderDurationPolicyRejectsInvalidRates() {
+        XCTAssertNil(
+            AudioRenderDurationPolicy.targetFrameCount(
+                tracks: [.init(frameCount: 100, sampleRate: 0)],
+                outputSampleRate: 48_000
+            )
+        )
+        XCTAssertNil(
+            AudioRenderDurationPolicy.targetFrameCount(
+                tracks: [.init(frameCount: 100, sampleRate: 44_100)],
+                outputSampleRate: .infinity
+            )
+        )
+    }
+
+    func testSuccessfulBackendMatrixHasArtifactParity() {
+        let url = URL(fileURLWithPath: "/tmp/recording")
+        let matrix: [(RecordingArtifact.Production, RecordingArtifact.Kind)] = [
+            (.screenCaptureWriter, .video),
+            (.audioRemix, .video),
+            (.systemAudioWriter, .audio),
+            (.mp3Conversion, .audio),
+            (.qmaPackage, .package),
+            (.qmaExport, .audio),
+            (.deviceCapture, .video)
+        ]
+
+        for (production, kind) in matrix {
+            let outcome = FinalizationOutcome.success(
+                RecordingArtifact(kind: kind, production: production, url: url)
+            )
+            let policy = RecordingCompletionPolicy.evaluate(
+                outcome: outcome,
+                showsPreview: true,
+                trimsAfterRecording: true
+            )
+
+            XCTAssertTrue(policy.presentsPreview, "\(production)")
+            XCTAssertFalse(policy.sendsNotification, "\(production)")
+            XCTAssertEqual(policy.offersTrim, kind == .video, "\(production)")
+            XCTAssertEqual(policy.dispatchesArchive, kind == .video, "\(production)")
+        }
+    }
+
+    func testFailureMatrixAlwaysNotifiesAndRetainsRecoveryLocation() {
+        let retainedURL = URL(fileURLWithPath: "/tmp/source")
+        let stages: [RecordingFailure.Stage] = [
+            .writer, .audioRemix, .mp3Conversion, .qmaLoad, .qmaExport, .deviceCapture
+        ]
+
+        for stage in stages {
+            let failure = RecordingFailure(stage: stage, message: "failed", retainedURL: retainedURL)
+            let policy = RecordingCompletionPolicy.evaluate(
+                outcome: .failure(failure),
+                showsPreview: true,
+                trimsAfterRecording: true
+            )
+
+            XCTAssertEqual(failure.retainedURL, retainedURL, "\(stage)")
+            XCTAssertFalse(policy.presentsPreview, "\(stage)")
+            XCTAssertTrue(policy.sendsNotification, "\(stage)")
+            XCTAssertFalse(policy.offersTrim, "\(stage)")
+            XCTAssertFalse(policy.dispatchesArchive, "\(stage)")
+        }
+    }
+
+    func testSuccessWithoutPreviewUsesNotificationAndOnlyVideoGetsArchive() {
+        let audio = FinalizationOutcome.success(
+            RecordingArtifact(
+                kind: .audio,
+                production: .mp3Conversion,
+                url: URL(fileURLWithPath: "/tmp/recording.mp3")
+            )
+        )
+        let policy = RecordingCompletionPolicy.evaluate(
+            outcome: audio,
+            showsPreview: false,
+            trimsAfterRecording: true
+        )
+
+        XCTAssertFalse(policy.presentsPreview)
+        XCTAssertTrue(policy.sendsNotification)
+        XCTAssertFalse(policy.offersTrim)
+        XCTAssertFalse(policy.dispatchesArchive)
     }
 
     private func makeSnapshot(

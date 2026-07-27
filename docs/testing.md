@@ -13,12 +13,17 @@ sh Scripts/check-public-tree.sh
 swift test --package-path Packages/RNNoiseProcessor
 swift test --package-path Packages/ArchiveJobCore
 swift test --package-path Packages/RecordingDomain
+swift test --package-path Packages/WindowPlacementCore
 plutil -lint QuickRecorder/Info.plist
 plutil -lint QuickRecorder/QuickRecorder.entitlements
+plutil -lint QuickRecorder/zh-Hans.lproj/Localizable.strings
+plutil -lint QuickRecorder/zh-Hant.lproj/Localizable.strings
 ```
 
 When a package is not yet present on a historical branch, omit only that
-package's command.
+package's command. Before a public commit, inspect the staged diff as well as
+the working tree; the public-tree script scans both content views so partially
+staged local paths or credentials cannot bypass the gate.
 
 ## Media contract gate
 

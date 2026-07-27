@@ -13,46 +13,142 @@ import UserNotifications
 import SwiftLAME
 import SwiftUI
 import AECAudioStream
+import RecordingDomain
 
 class SCContext {
-    static var trimingList = [URL]()
-    static var firstFrame: CMSampleBuffer?
+    private static var session: RecordingSessionCoordinator { AppDelegate.shared.recordingSession }
+    private static var captureOwner: RecordingCaptureContextOwner { session.capture }
+    private static var deviceOwner: RecordingDeviceContextOwner { session.device }
+    private static var finalizationOwner: RecordingFinalizationContextOwner { session.finalization }
+    static var trimingList: [URL] {
+        get { finalizationOwner.trimmingList }
+        set { finalizationOwner.trimmingList = newValue }
+    }
+    private static var mediaOwner: RecordingSessionMediaOwner { AppDelegate.shared.recordingSession.media }
+    static var firstFrame: CMSampleBuffer? {
+        get { mediaOwner.firstFrame }
+        set { mediaOwner.firstFrame = newValue }
+    }
     static var autoStop = 0
-    static var recordCam = ""
-    static var recordDevice = ""
-    static var captureSession: AVCaptureSession!
-    static var previewSession: AVCaptureSession!
-    static var frameCache: CMSampleBuffer?
-    static var filter: SCContentFilter?
+    static var recordCam: String {
+        get { deviceOwner.cameraIdentifier }
+        set { deviceOwner.cameraIdentifier = newValue }
+    }
+    static var recordDevice: String {
+        get { deviceOwner.deviceIdentifier }
+        set { deviceOwner.deviceIdentifier = newValue }
+    }
+    static var captureSession: AVCaptureSession! {
+        get { deviceOwner.captureSession }
+        set { deviceOwner.captureSession = newValue }
+    }
+    static var previewSession: AVCaptureSession! {
+        get { deviceOwner.previewSession }
+        set { deviceOwner.previewSession = newValue }
+    }
+    static var frameCache: CMSampleBuffer? {
+        get { deviceOwner.frameCache }
+        set { deviceOwner.frameCache = newValue }
+    }
+    static var filter: SCContentFilter? {
+        get { captureOwner.filter }
+        set { captureOwner.filter = newValue }
+    }
     static var isMagnifierEnabled = false
     static var saveFrame = false
-    static var isPaused = false
-    static var isResume = false
+    static var isPaused: Bool {
+        get { mediaOwner.isPaused }
+        set { mediaOwner.isPaused = newValue }
+    }
     static var isSkipFrame = false
-    static var lastPTS: CMTime?
-    static var lastVideoPTS: CMTime?
-    static var adaptiveVFRSkippedFrames = 0
-    static var timeOffset = CMTimeMake(value: 0, timescale: 0)
-    static var screenArea: NSRect?
+    static var lastPTS: CMTime? {
+        get { mediaOwner.lastPTS }
+        set { mediaOwner.lastPTS = newValue }
+    }
+    static var lastVideoPTS: CMTime? {
+        get { mediaOwner.lastVideoPTS }
+        set { mediaOwner.lastVideoPTS = newValue }
+    }
+    static var adaptiveVFRSkippedFrames: Int {
+        get { mediaOwner.adaptiveVFRSkippedFrames }
+        set { mediaOwner.adaptiveVFRSkippedFrames = newValue }
+    }
+    static var screenArea: NSRect? {
+        get { captureOwner.screenArea }
+        set { captureOwner.screenArea = newValue }
+    }
     static let audioEngine = AVAudioEngine()
     static let AECEngine = AECAudioStream(sampleRate: 48000)
     static var microphoneNoiseReductionPipeline: MicrophoneNoiseReductionPipeline?
     static var backgroundColor: CGColor = CGColor.black
-    static var filePath: String!
-    static var filePath1: String!
-    static var filePath2: String!
-    static var audioFile: AVAudioFile?
-    static var audioFile2: AVAudioFile?
-    static var vW: AVAssetWriter!
-    static var vwInput, awInput, micInput: AVAssetWriterInput!
-    static var startTime: Date?
-    static var timePassed: TimeInterval = 0
-    static var stream: SCStream!
-    static var screen: SCDisplay?
-    static var window: [SCWindow]?
-    static var application: [SCRunningApplication]?
-    static var streamType: StreamType?
-    static var availableContent: SCShareableContent?
+    static var filePath: String! {
+        get { finalizationOwner.primaryPath }
+        set { finalizationOwner.primaryPath = newValue }
+    }
+    static var filePath1: String! {
+        get { finalizationOwner.systemAudioPath }
+        set { finalizationOwner.systemAudioPath = newValue }
+    }
+    static var filePath2: String! {
+        get { finalizationOwner.microphonePath }
+        set { finalizationOwner.microphonePath = newValue }
+    }
+    static var audioFile: AVAudioFile? {
+        get { finalizationOwner.systemAudioFile }
+        set { finalizationOwner.systemAudioFile = newValue }
+    }
+    static var audioFile2: AVAudioFile? {
+        get { finalizationOwner.microphoneAudioFile }
+        set { finalizationOwner.microphoneAudioFile = newValue }
+    }
+    static var vW: AVAssetWriter! {
+        get { mediaOwner.writer }
+    }
+    static var vwInput: AVAssetWriterInput! {
+        get { mediaOwner.videoInput }
+    }
+    static var awInput: AVAssetWriterInput! {
+        get { mediaOwner.systemAudioInput }
+    }
+    static var micInput: AVAssetWriterInput! {
+        get { mediaOwner.microphoneInput }
+    }
+    static var startTime: Date? {
+        get { mediaOwner.startTime }
+        set { mediaOwner.startTime = newValue }
+    }
+    static var timePassed: TimeInterval {
+        get { finalizationOwner.elapsedTime }
+        set { finalizationOwner.elapsedTime = newValue }
+    }
+    static var partialQMAPackagePath: String? {
+        get { finalizationOwner.partialPackagePath }
+        set { finalizationOwner.partialPackagePath = newValue }
+    }
+    static var stream: SCStream! {
+        get { captureOwner.stream }
+        set { captureOwner.stream = newValue }
+    }
+    static var screen: SCDisplay? {
+        get { captureOwner.screen }
+        set { captureOwner.screen = newValue }
+    }
+    static var window: [SCWindow]? {
+        get { captureOwner.windows }
+        set { captureOwner.windows = newValue }
+    }
+    static var application: [SCRunningApplication]? {
+        get { captureOwner.applications }
+        set { captureOwner.applications = newValue }
+    }
+    static var streamType: StreamType? {
+        get { captureOwner.mode }
+        set { captureOwner.mode = newValue }
+    }
+    static var availableContent: SCShareableContent? {
+        get { captureOwner.availableContent }
+        set { captureOwner.availableContent = newValue }
+    }
     static let excludedApps = ["", "com.apple.dock", "com.apple.screencaptureui", "com.apple.controlcenter", "com.apple.notificationcenterui", "com.apple.systemuiserver", "com.apple.WindowManager", "dev.mnpn.Azayaka", "com.gaosun.eul", "com.pointum.hazeover", "net.matthewpalmer.Vanilla", "com.dwarvesv.minimalbar", "com.bjango.istatmenus.status"]
     
     static func updateAvailableContentSync() -> SCShareableContent? {
@@ -357,98 +453,84 @@ class SCContext {
     }
     
     static func pauseRecording() {
-        isPaused.toggle()
-        if isPaused {
+        let paused = mediaOwner.togglePaused()
+        if !paused { startTime = Date.now.addingTimeInterval(-1) - timePassed }
+        if paused {
             AppDelegate.shared.recordingSession.markPaused()
         } else {
             AppDelegate.shared.recordingSession.markResumed()
         }
-        PopoverState.shared.isPaused = isPaused
-        if !isPaused {
-            isResume = true
-            startTime = Date.now.addingTimeInterval(-1) - SCContext.timePassed
-        }
+        PopoverState.shared.isPaused = paused
     }
     
-    static func stopRecording() {
+    static func stopRecording(completion: (() -> Void)? = nil) {
         let activeRequest = AppDelegate.shared.recordingSession.request
-        AppDelegate.shared.recordingSession.beginStopping()
-        defer { AppDelegate.shared.recordingSession.complete() }
-        let settings = activeRequest?.settings
-        let recordsMicrophone = settings?.recordsMicrophone ?? ud.bool(forKey: "recordMic")
-        let recordsSystemAudio = settings?.recordsSystemAudio ?? ud.bool(forKey: "recordWinSound")
-        let remuxesAudio = settings?.remuxesAudio ?? ud.bool(forKey: "remuxAudio")
-        let showsPreview = settings?.showsPreview ?? ud.bool(forKey: "showPreview")
-        let trimsAfterRecording = settings?.trimsAfterRecording ?? ud.bool(forKey: "trimAfterRecord")
-        let audioFormat = settings?.audioFormat ?? AudioFormat(rawValue: ud.string(forKey: "audioFormat") ?? "") ?? .aac
-        let audioQuality = settings?.audioQuality ?? AudioQuality(rawValue: ud.integer(forKey: "audioQuality")) ?? .high
-
-        if settings?.preventsSleep ?? ud.bool(forKey: "preventSleep") { SleepPreventer.shared.allowSleep() }
-        autoStop = 0
-        lastPTS = nil
-        lastVideoPTS = nil
-        adaptiveVFRSkippedFrames = 0
-        recordCam = ""
-        recordDevice = ""
-        isMagnifierEnabled = false
-        mousePointer.orderOut(nil)
-        screenMagnifier.orderOut(nil)
-        AppDelegate.shared.stopGlobalMouseMonitor()
-
-        if let w = NSApp.windows.first(where:  { $0.title == "Area Overlayer".local }) { w.close() }
-        
-        if stream != nil { stream.stopCapture() }
-        stream = nil
-        AppDelegate.shared.recordingSession.beginFinalizing()
-        if recordsMicrophone {
-            AudioRecorder.shared.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
-            audioEngine.stop()
-            //DispatchQueue.global().async { try? audioEngine.inputNode.setVoiceProcessingEnabled(false) }
-            if settings?.enablesAEC ?? ud.bool(forKey: "enableAEC") { try? AECEngine.stopAudioUnit() }
-            flushMicrophoneNoiseReduction()
-            micInput.markAsFinished()
+        guard AppDelegate.shared.recordingSession.beginStopping(completion: completion) else { return }
+        guard let activeRequest else {
+            AppDelegate.shared.recordingSession.fail("Recording request is unavailable during finalization.")
+            return
         }
-        if streamType != .systemaudio {
-            let dispatchGroup = DispatchGroup()
-            dispatchGroup.enter()
-            vwInput.markAsFinished()
-            if #available(macOS 13, *) { awInput.markAsFinished() }
-            vW.finishWriting {
-                if vW.status != .completed {
-                    print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
-                    let err = vW.error?.localizedDescription ?? "Unknow Error"
-                    AppDelegate.shared.recordingSession.fail(err)
-                    showNotification(title: "Failed to save file".local, body: "\(err)", id: "quickrecorder.error.\(UUID().uuidString)")
-                } else {
-                    if recordsMicrophone && recordsSystemAudio && remuxesAudio {
-                        mixAudioTracks(videoURL: filePath.url) { result in
-                            switch result {
-                            case .success(let url):
-                                print("Exported video to \(String(describing: url.path))")
-                                handleCompletedVideo(url: url)
-                                if !showsPreview {
-                                    showNotification(title: "Recording Completed".local, body: String(format: "File saved to: %@".local, url.path), id: "quickrecorder.completed.\(UUID().uuidString)")
-                                }
-                                DispatchQueue.main.async {
-                                    if trimsAfterRecording {
-                                        AppDelegate.shared.createNewWindow(view: VideoTrimmerView(videoURL: url), title: url.lastPathComponent, only: false)
-                                    } else {
-                                        showPreview(path: url.path, enabled: showsPreview)
-                                    }
-                                }
-                            case .failure(let error):
-                                print("Failed to export video: \(error.localizedDescription)")
-                            }
-                        }
-                    }
+        let settings = activeRequest.settings
+        let recordsMicrophone = settings.recordsMicrophone
+        let recordsSystemAudio = settings.recordsSystemAudio
+        let remuxesAudio = settings.remuxesAudio
+        let audioFormat = settings.audioFormat
+        let audioQuality = settings.audioQuality
+        let finalizingStreamType = streamType
+        let activeStream = stream
+        guard let primaryPath = filePath else {
+            AppDelegate.shared.recordingSession.fail("Recording output path is unavailable during finalization.")
+            return
+        }
+        let primaryURL = primaryPath.url
+        let auxiliaryAudioURL = filePath1?.url
+        guard AppDelegate.shared.recordingSession.beginFinalizing() else {
+            AppDelegate.shared.recordingSession.fail("Unable to begin recording finalization.")
+            return
+        }
+
+        Task {
+            if settings.preventsSleep { SleepPreventer.shared.allowSleep() }
+            autoStop = 0
+            lastPTS = nil
+            lastVideoPTS = nil
+            adaptiveVFRSkippedFrames = 0
+            recordCam = ""
+            recordDevice = ""
+            isMagnifierEnabled = false
+            await MainActor.run {
+                mousePointer.orderOut(nil)
+                screenMagnifier.orderOut(nil)
+                AppDelegate.shared.stopGlobalMouseMonitor()
+                if let window = NSApp.windows.first(where: { $0.title == "Area Overlayer".local }) {
+                    window.close()
                 }
-                dispatchGroup.leave()
             }
-            dispatchGroup.wait()
-        } else {
-            if recordsMicrophone { vW.finishWriting {} }
-        }
+            if let activeStream { try? await activeStream.stopCapture() }
+            stream = nil
+            if recordsMicrophone {
+                AudioRecorder.shared.stop()
+                audioEngine.inputNode.removeTap(onBus: 0)
+                audioEngine.stop()
+                if settings.enablesAEC { try? AECEngine.stopAudioUnit() }
+                mediaOwner.performSample { flushMicrophoneNoiseReduction() }
+            }
+            var writerResult: RecordingSessionMediaOwner.WriterResult?
+            if finalizingStreamType != .systemaudio {
+                writerResult = await mediaOwner.finishWriting(
+                    markVideoInput: true,
+                    markSystemAudioInput: true,
+                    markMicrophoneInput: recordsMicrophone
+                )
+            } else if recordsMicrophone {
+                writerResult = await mediaOwner.finishWriting(
+                    markVideoInput: false,
+                    markSystemAudioInput: false,
+                    markMicrophoneInput: true
+                )
+            } else {
+                mediaOwner.stopAcceptingSamples()
+            }
         
         DispatchQueue.main.async {
             controlPanel.close()
@@ -462,50 +544,72 @@ class SCContext {
         
         audioFile = nil // close audio file
         audioFile2 = nil // close audio file2
-        if streamType == .systemaudio {
+        mediaOwner.discardWriter()
+
+        let finalize: (FinalizationOutcome) -> Void = { outcome in
+            DispatchQueue.main.async {
+                completeFinalization(outcome)
+            }
+        }
+
+        if finalizingStreamType != .systemaudio, writerResult?.status != .completed {
+            let message = writerResult?.error?.localizedDescription ?? "Video writer did not complete"
+            finalize(.failure(RecordingFailure(stage: .writer, message: message, retainedURL: primaryURL)))
+        } else if finalizingStreamType == .systemaudio, recordsMicrophone, writerResult?.status != .completed {
+            let message = writerResult?.error?.localizedDescription ?? "Microphone writer did not complete"
+            finalize(.failure(RecordingFailure(stage: .writer, message: message, retainedURL: primaryURL)))
+        } else if finalizingStreamType == .systemaudio {
             if audioFormat == .mp3 && !recordsMicrophone {
                 Task {
-                    let outPutUrl = (String(filePath.dropLast(4)) + ".mp3").url
+                    let outputURL = primaryURL.deletingPathExtension().appendingPathExtension("mp3")
                     do {
-                        try await m4a2mp3(inputUrl: filePath1.url, outputUrl: outPutUrl, bitrateKbps: audioQuality.rawValue)
-                        try? fd.removeItem(atPath: filePath1)
-                        if !showsPreview {
-                            let title = "Recording Completed".local
-                            let body = String(format: "File saved to: %@".local, outPutUrl.path.removingPercentEncoding!)
-                            let id = "quickrecorder.completed.\(UUID().uuidString)"
-                            showNotification(title: title, body: body, id: id)
-                        } else {
-                            DispatchQueue.main.async { showPreview(path: outPutUrl.path, image: NSImage(named: "audioIcon"), enabled: showsPreview) }
+                        guard let auxiliaryAudioURL else {
+                            throw CocoaError(.fileNoSuchFile)
                         }
+                        try await m4a2mp3(inputUrl: auxiliaryAudioURL, outputUrl: outputURL, bitrateKbps: audioQuality.rawValue)
+                        try fd.removeItem(at: auxiliaryAudioURL)
+                        finalize(.success(RecordingArtifact(kind: .audio, production: .mp3Conversion, url: outputURL)))
                     } catch {
-                        showNotification(title: "Failed to save file".local, body: "\(error.localizedDescription)", id: "quickrecorder.error.\(UUID().uuidString)")
+                        finalize(.failure(RecordingFailure(stage: .mp3Conversion, message: error.localizedDescription, retainedURL: auxiliaryAudioURL)))
                     }
                 }
-            } else {
-                if remuxesAudio && recordsMicrophone {
-                    let fileURL = filePath.url
-                    let document = try? qmaPackageHandle.load(from: fileURL)
-                    if let document = document {
+            } else if remuxesAudio && recordsMicrophone {
+                Task {
+                    do {
+                        let document = try qmaPackageHandle.load(from: primaryURL)
                         let audioPlayerManager = AudioPlayerManager()
-                        audioPlayerManager.loadAudioFiles(format: document.info.format, package: fileURL, encoder: document.info.encoder, saveMP3: document.info.exportMP3)
+                        try audioPlayerManager.loadAudioFiles(format: document.info.format, package: primaryURL, encoder: document.info.encoder, saveMP3: document.info.exportMP3)
                         audioPlayerManager.sysVol = document.info.sysVol
                         audioPlayerManager.micVol = document.info.micVol
                         let exportMP3 = document.info.exportMP3
                         let format = exportMP3 ? "mp3" : document.info.format
-                        let saveURL = fileURL.deletingPathExtension().appendingPathExtension(format)
-                        audioPlayerManager.saveFile(saveURL, saveAsMP3: exportMP3)
-                    }
-                } else {
-                    if !showsPreview {
-                        let title = "Recording Completed".local
-                        let body = String(format: "File saved to: %@".local, filePath)
-                        let id = "quickrecorder.completed.\(UUID().uuidString)"
-                        showNotification(title: title, body: body, id: id)
-                    } else {
-                        showPreview(path: filePath, image: NSImage(named: "qmaIcon"), enabled: showsPreview)
+                        let saveURL = primaryURL.deletingPathExtension().appendingPathExtension(format)
+                        let outputURL = try await audioPlayerManager.exportFile(saveURL, saveAsMP3: exportMP3)
+                        finalize(.success(RecordingArtifact(kind: .audio, production: .qmaExport, url: outputURL)))
+                    } catch {
+                        let stage: RecordingFailure.Stage = (try? qmaPackageHandle.load(from: primaryURL)) == nil ? .qmaLoad : .qmaExport
+                        finalize(.failure(RecordingFailure(stage: stage, message: error.localizedDescription, retainedURL: primaryURL)))
                     }
                 }
+            } else {
+                let production: RecordingArtifact.Production = recordsMicrophone ? .qmaPackage : .systemAudioWriter
+                let kind: RecordingArtifact.Kind = recordsMicrophone ? .package : .audio
+                finalize(.success(RecordingArtifact(kind: kind, production: production, url: primaryURL)))
             }
+        } else if recordsMicrophone && recordsSystemAudio && remuxesAudio {
+            Task {
+                do {
+                    let outputURL = try await mixAudioTracks(
+                        videoURL: primaryURL,
+                        fileExtension: settings.videoFormat.rawValue
+                    )
+                    finalize(.success(RecordingArtifact(kind: .video, production: .audioRemix, url: outputURL)))
+                } catch {
+                    finalize(.failure(RecordingFailure(stage: .audioRemix, message: error.localizedDescription, retainedURL: primaryURL)))
+                }
+            }
+        } else {
+            finalize(.success(RecordingArtifact(kind: .video, production: .screenCaptureWriter, url: primaryURL)))
         }
         
         isPaused = false
@@ -516,28 +620,52 @@ class SCContext {
         AppDelegate.shared.presenterType = "OFF"
         updateStatusBar()
         
-        if !(recordsMicrophone && recordsSystemAudio && remuxesAudio) && streamType != .systemaudio {
-            if let vW = vW {
-                if vW.status != .completed {
-                    AppDelegate.shared.recordingSession.fail(vW.error?.localizedDescription ?? "Video writer did not complete")
-                    streamType = nil
-                    return
-                }
-            }
-            if !showsPreview {
-                let title = "Recording Completed".local
-                let body = String(format: "File saved to: %@".local, filePath)
-                let id = "quickrecorder.completed.\(UUID().uuidString)"
-                showNotification(title: title, body: body, id: id)
-            } else {
-                showPreview(path: filePath, enabled: showsPreview)
-            }
-            handleCompletedVideo(url: filePath.url)
-            trimVideo(enabled: trimsAfterRecording)
+            streamType = nil
         }
-        
-        streamType = nil
-        firstFrame = nil
+    }
+
+    static func completeFinalization(_ outcome: FinalizationOutcome) {
+        partialQMAPackagePath = nil
+        _ = AppDelegate.shared.recordingSession.finish(outcome) { request, outcome in
+            let policy = RecordingCompletionPolicy.evaluate(
+                outcome: outcome,
+                showsPreview: request.settings.showsPreview,
+                trimsAfterRecording: request.settings.trimsAfterRecording
+            )
+            switch outcome {
+            case let .success(artifact):
+                if policy.dispatchesArchive { handleCompletedVideo(url: artifact.url) }
+                if policy.sendsNotification {
+                    showNotification(
+                        title: "Recording Completed".local,
+                        body: String(format: "File saved to: %@".local, artifact.url.path),
+                        id: "quickrecorder.completed.\(UUID().uuidString)"
+                    )
+                }
+                if policy.offersTrim {
+                    AppDelegate.shared.createNewWindow(
+                        view: VideoTrimmerView(videoURL: artifact.url),
+                        title: artifact.url.lastPathComponent,
+                        only: false
+                    )
+                } else if policy.presentsPreview {
+                    let image: NSImage?
+                    switch artifact.kind {
+                    case .video: image = nil
+                    case .audio: image = NSImage(named: "audioIcon")
+                    case .package: image = NSImage(named: "qmaIcon")
+                    }
+                    showPreview(path: artifact.url.path, image: image, enabled: true)
+                }
+            case let .failure(failure):
+                showNotification(
+                    title: "Failed to save file".local,
+                    body: failure.message,
+                    id: "quickrecorder.error.\(UUID().uuidString)"
+                )
+            }
+            firstFrame = nil
+        }
     }
 
     static func handleCompletedVideo(url: URL) {
@@ -805,13 +933,21 @@ class SCContext {
         )
     }
     
-    static func mixAudioTracks(videoURL: URL, completion: @escaping (Result<URL, Error>) -> Void) {
+    static func mixAudioTracks(videoURL: URL, fileExtension: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            mixAudioTracks(videoURL: videoURL, fileExtension: fileExtension) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    private static func mixAudioTracks(videoURL: URL, fileExtension: String, completion: @escaping (Result<URL, Error>) -> Void) {
         showNotification(title: "Still Processing".local, body: "Mixing audio track...".local, id: "quickrecorder.processing.\(UUID().uuidString)")
         
         let asset = AVAsset(url: videoURL)
         let audioOnlyComposition = AVMutableComposition()
         
-        let fileEnding = ud.string(forKey: "videoFormat") ?? ""
+        let fileEnding = fileExtension
         var fileType: AVFileType?
         switch fileEnding {
         case VideoFormat.mov.rawValue: fileType = AVFileType.mov
@@ -920,7 +1056,7 @@ class SCContext {
                     case .cancelled:
                         completion(.failure(NSError(domain: "ExportCancelled", code: -1, userInfo: [NSLocalizedDescriptionKey: "Export was cancelled."])))
                     default:
-                        break
+                        completion(.failure(NSError(domain: "ExportStateError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Video export ended in an unexpected state."])))
                     }
                 }
             case .failed:
@@ -928,7 +1064,7 @@ class SCContext {
             case .cancelled:
                 completion(.failure(NSError(domain: "ExportCancelled", code: -1, userInfo: [NSLocalizedDescriptionKey: "Export was cancelled."])))
             default:
-                break
+                completion(.failure(NSError(domain: "ExportStateError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Audio export ended in an unexpected state."])))
             }
         }
     }

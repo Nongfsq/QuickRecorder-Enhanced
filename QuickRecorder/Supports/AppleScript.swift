@@ -28,7 +28,7 @@ class selectScreen: NSScriptCommand {
                     } else {
                         let screen = screens[index]
                         AppDelegate.shared.createCountdownPanel(screen: screen) {
-                            AppDelegate.shared.prepRecord(type: "display", screens: screen, windows: nil, applications: nil)
+                            AppDelegate.shared.prepRecord(mode: .screen, screens: screen, windows: nil, applications: nil)
                         }
                     }
                 } else {
@@ -97,7 +97,7 @@ class selectApps: NSScriptCommand {
                         createAlert(title: "Error".local, message: "This app exists in multiple screens, please select it manually!".local, button1: "OK".local).runModal()
                     } else {
                         AppDelegate.shared.createCountdownPanel(screen: s.first!) {
-                            AppDelegate.shared.prepRecord(type: "application", screens: s.first!, windows: nil, applications: [app])
+                            AppDelegate.shared.prepRecord(mode: .application, screens: s.first!, windows: nil, applications: [app])
                         }
                     }
                 } else {
@@ -150,11 +150,11 @@ class selectWindows: NSScriptCommand {
                     if let display = SCContext.getSCDisplayWithMouse() {
                         if s.contains(display) {
                             AppDelegate.shared.createCountdownPanel(screen: display) {
-                                AppDelegate.shared.prepRecord(type: "window" , screens: s.first!, windows: [window], applications: nil)
+                                AppDelegate.shared.prepRecord(mode: .window, screens: s.first!, windows: [window], applications: nil)
                             }
                         } else {
                             AppDelegate.shared.createCountdownPanel(screen: s.first!) {
-                                AppDelegate.shared.prepRecord(type: "window" , screens: s.first!, windows: [window], applications: nil)
+                                AppDelegate.shared.prepRecord(mode: .window, screens: s.first!, windows: [window], applications: nil)
                             }
                         }
                     }
@@ -181,7 +181,7 @@ class recordAudio: NSScriptCommand {
                     UserDefaults.standard.set(mic, forKey: "recordMic")
                 }
                 closeAllWindow()
-                AppDelegate.shared.prepRecord(type: "audio", screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
+                AppDelegate.shared.prepRecord(mode: .systemaudio, screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
                 UserDefaults.standard.set(m, forKey: "recordMic")
             }
         }

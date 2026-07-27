@@ -274,6 +274,7 @@
 "Archive manifest needs attention" = "归档任务清单需要处理";
 "Validate Temporary Archive" = "验证临时归档";
 "Validate Recovered Archive" = "验证已恢复的归档";
+"Cancel Validation" = "取消验证";
 "Restart Compression" = "重新开始压缩";
 "Abandon Archive Job" = "放弃归档任务";
 "Remove Recovery Record" = "移除恢复记录";

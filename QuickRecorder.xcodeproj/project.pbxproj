@@ -53,7 +53,6 @@
 		18FA00102E00000000000000 /* ArchiveJobView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA000F2E00000000000000 /* ArchiveJobView.swift */; };
 		18FA00122E00000000000000 /* ArchiveSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA00112E00000000000000 /* ArchiveSettingsSection.swift */; };
 		18FA00142E00000000000000 /* ArchiveRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA00132E00000000000000 /* ArchiveRecoveryView.swift */; };
-		18FA00222E00000000000000 /* FFmpegRuntime in Resources */ = {isa = PBXBuildFile; fileRef = 18FA00212E00000000000000 /* FFmpegRuntime */; };
 		18FB00022E00000000000000 /* MicrophoneNoiseReductionPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FB00012E00000000000000 /* MicrophoneNoiseReductionPipeline.swift */; };
 		18FB00052E00000000000000 /* RNNoiseProcessor in Frameworks */ = {isa = PBXBuildFile; productRef = 18FB00042E00000000000000 /* RNNoiseProcessor */; };
 		18FC00032E00000000000000 /* ArchiveJobCore in Frameworks */ = {isa = PBXBuildFile; productRef = 18FC00022E00000000000000 /* ArchiveJobCore */; };
@@ -351,7 +350,6 @@
 				18D3BDFB2BCE5DF5006CFFC0 /* Localizable.strings in Resources */,
 				18A551FC2D0749C3008FC5F6 /* Scriptable.sdef in Resources */,
 				18D3BDEF2BCE5DC2006CFFC0 /* Assets.xcassets in Resources */,
-				18FA00222E00000000000000 /* FFmpegRuntime in Resources */,
 				1862BF8D2BD5494E003ED522 /* Credits.rtf in Resources */,
 				189BD5E62BDE34B80056D06C /* InfoPlist.strings in Resources */,
 			);
@@ -575,7 +573,7 @@
 				CODE_SIGN_ENTITLEMENTS = QuickRecorder/QuickRecorder.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 171;
+				CURRENT_PROJECT_VERSION = 172;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"QuickRecorder/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -610,7 +608,8 @@
 				CODE_SIGN_ENTITLEMENTS = QuickRecorder/QuickRecorder.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 171;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CURRENT_PROJECT_VERSION = 172;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"QuickRecorder/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
