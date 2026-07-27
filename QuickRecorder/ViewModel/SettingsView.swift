@@ -166,7 +166,7 @@ struct OutputView: View {
     @AppStorage("frameRate")        private var frameRate: Int = 60
     @AppStorage("highRes")          private var highRes: Int = 2
     @AppStorage("videoQuality")     private var videoQuality: Double = 1.0
-    @AppStorage("encoder")          private var encoder: Encoder = .h265
+    @AppStorage("encoder")          private var encoder: Encoder = .h264
     @AppStorage("videoFormat")      private var videoFormat: VideoFormat = .mp4
     @AppStorage("videoBitrate")     private var videoBitrate: VideoBitrate = .auto
     @AppStorage("adaptiveVFR")      private var adaptiveVFR: Bool = false

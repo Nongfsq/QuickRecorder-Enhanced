@@ -15,17 +15,15 @@ import AECAudioStream
 
 extension AppDelegate {
     @objc func prepRecord(type: String, screens: SCDisplay?, windows: [SCWindow]?, applications: [SCRunningApplication]?, fastStart: Bool = false) {
-        switch type {
-        case "window":  SCContext.streamType = .window
-        case "windows":  SCContext.streamType = .windows
-        case "display": SCContext.streamType = .screen
-        case "application": SCContext.streamType = .application
-        case "area": SCContext.streamType = .screenarea
-        case "audio":   SCContext.streamType = .systemaudio
-            default: return // if we don't even know what to record I don't think we should even try
-        }
+        guard let request = RecordingPreferencesStore(defaults: ud).makeRequest(
+            legacyCaptureType: type,
+            fastStart: fastStart
+        ) else { return }
+        SCContext.streamType = request.mode
+        let settings = request.settings
+
         var isDirectory: ObjCBool = false
-        let outputPath = saveDirectory!
+        let outputPath = settings.outputDirectory
         if fd.fileExists(atPath: outputPath, isDirectory: &isDirectory) {
             if !isDirectory.boolValue {
                 SCContext.streamType = nil
@@ -87,10 +85,10 @@ extension AppDelegate {
         if SCContext.streamType == .window || SCContext.streamType == .windows {
             if var includ = SCContext.window {
                 if includ.count > 1 {
-                    if highlightMouse { includ += mouseWindow }
-                    if background.rawValue == BackgroundType.wallpaper.rawValue { if dockApp != nil { includ += wallpaper }}
+                    if settings.highlightsMouse { includ += mouseWindow }
+                    if settings.background == .wallpaper { if dockApp != nil { includ += wallpaper }}
                     SCContext.filter = SCContentFilter(display: screen, including: includ + camLayer)
-                    if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = includeMenuBar }
+                    if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = settings.includesMenuBar }
                 } else {
                     SCContext.streamType = .window
                     SCContext.filter = SCContentFilter(desktopIndependentWindow: includ[0])
@@ -107,46 +105,52 @@ extension AppDelegate {
                 var excluded = [SCRunningApplication]()
                 var except = [SCWindow]()
                 excluded += excliudedApps
-                if hideCCenter { excluded += controlCenterWindow }
-                if hideSelf { if let qrWindows = qrWindows { except += qrWindows }}
-                if background.rawValue != BackgroundType.wallpaper.rawValue { if dockApp != nil {
+                if settings.hidesControlCenter { excluded += controlCenterWindow }
+                if settings.hidesSelf { if let qrWindows = qrWindows { except += qrWindows }}
+                if settings.background != .wallpaper { if dockApp != nil {
                     except += wallpaper
                     except += desktop
                 }}
-                if hideDesktopFiles { except += desktopFiles }
+                if settings.hidesDesktopFiles { except += desktopFiles }
                 SCContext.filter = SCContentFilter(display: screen, excludingApplications: excluded, exceptingWindows: except)
-                if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = ((SCContext.streamType == .screen || SCContext.streamType == .screenarea) && includeMenuBar) }
+                if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = ((request.mode == .screen || request.mode == .screenarea) && settings.includesMenuBar) }
             }
             if SCContext.streamType == .application {
                 var includ = SCContext.application!
                 var except = [SCWindow]()
                 if let qrSelf = qrSelf { includ.append(qrSelf) }
                 let withFinder = includ.map{ $0.bundleIdentifier }.contains("com.apple.finder")
-                if withFinder && hideDesktopFiles { except += desktopFiles }
-                if hideSelf { if let qrWindows = qrWindows { except += qrWindows }}
+                if withFinder && settings.hidesDesktopFiles { except += desktopFiles }
+                if settings.hidesSelf { if let qrWindows = qrWindows { except += qrWindows }}
                 //if ud.bool(forKey: "highlightMouse") { if let qrSelf = qrSelf { includ.append(qrSelf) }}
-                if background.rawValue == BackgroundType.wallpaper.rawValue { if let dock = dockApp { includ.append(dock); except += dockWindow}}
+                if settings.background == .wallpaper { if let dock = dockApp { includ.append(dock); except += dockWindow}}
                 SCContext.filter = SCContentFilter(display: screen, including: includ, exceptingWindows: except)
-                if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = includeMenuBar }
+                if #available(macOS 14.2, *) { SCContext.filter?.includeMenuBar = settings.includesMenuBar }
             }
+        }
+        guard recordingSession.prepare(request) else {
+            SCContext.streamType = nil
+            return
         }
         if SCContext.streamType == .systemaudio {
             SCContext.filter = SCContentFilter(display: screen, excludingApplications: [], exceptingWindows: [])
-            prepareAudioRecording()
+            prepareAudioRecording(settings: settings)
         }
-        Task { await record(filter: SCContext.filter!, fastStart: fastStart) }
+        Task { await record(filter: SCContext.filter!, request: request) }
     }
 
-    func record(filter: SCContentFilter, fastStart: Bool = true) async {
+    func record(filter: SCContentFilter, request: RecordingRequest) async {
+        let fastStart = request.fastStart
+        let settings = request.settings
         SCContext.timeOffset = CMTimeMake(value: 0, timescale: 0)
         SCContext.isPaused = false
         SCContext.isResume = false
         
-        let audioOnly = SCContext.streamType == .systemaudio
+        let audioOnly = request.mode == .systemaudio
         
         let conf: SCStreamConfiguration
 #if compiler(>=6.0)
-        if recordHDR {
+        if settings.recordHDR {
             if #available(macOS 15, *) {
                 // TODO change here. https://developer.apple.com/videos/play/wwdc2024/10088/?time=191
                 // For canonical display, it means you are capturing HDR content that is optimized for sharing with other HDR devices.
@@ -164,8 +168,8 @@ extension AppDelegate {
         
         if !audioOnly {
             if #available(macOS 14.0, *) {
-                conf.width = Int(filter.contentRect.width) * (highRes == 2 ? Int(filter.pointPixelScale) : 1)
-                conf.height = Int(filter.contentRect.height) * (highRes == 2 ? Int(filter.pointPixelScale) : 1)
+                conf.width = Int(filter.contentRect.width) * (settings.resolutionScale == 2 ? Int(filter.pointPixelScale) : 1)
+                conf.height = Int(filter.contentRect.height) * (settings.resolutionScale == 2 ? Int(filter.pointPixelScale) : 1)
             } else {
                 guard let pointPixelScaleOld = (SCContext.screen ?? SCContext.getSCDisplayWithMouse()!).nsScreen?.backingScaleFactor else { return }
                 if SCContext.streamType == .application || SCContext.streamType == .windows || SCContext.streamType == .screen {
@@ -183,19 +187,19 @@ extension AppDelegate {
                     conf.width = Int(frame.width)
                     conf.height = Int(frame.height)
                 }
-                conf.width = conf.width * (highRes == 2 ? Int(pointPixelScaleOld) : 1)
-                conf.height = conf.height * (highRes == 2 ? Int(pointPixelScaleOld) : 1)
+                conf.width = conf.width * (settings.resolutionScale == 2 ? Int(pointPixelScaleOld) : 1)
+                conf.height = conf.height * (settings.resolutionScale == 2 ? Int(pointPixelScaleOld) : 1)
             }
             
             if fastStart{
                 conf.showsCursor = false
             } else{
-                conf.showsCursor = showMouse
+                conf.showsCursor = settings.showsMouse
             }
                     
 
-            if background.rawValue != BackgroundType.wallpaper.rawValue { conf.backgroundColor = SCContext.getBackgroundColor() }
-            if !recordHDR {
+            if settings.background != .wallpaper { conf.backgroundColor = SCContext.getBackgroundColor() }
+            if !settings.recordHDR {
                 conf.pixelFormat = kCVPixelFormatType_32BGRA
                 conf.colorSpaceName = CGColorSpace.sRGB
                 //if withAlpha { conf.pixelFormat = kCVPixelFormatType_32BGRA }
@@ -214,14 +218,14 @@ extension AppDelegate {
         }
         
         if #available(macOS 13, *) {
-            conf.capturesAudio = recordWinSound || fastStart || audioOnly
+            conf.capturesAudio = settings.recordsSystemAudio || fastStart || audioOnly
             conf.sampleRate = 48000
             conf.channelCount = SCContext.getAudioChannelCount()
         }
         
 
         //  conf.minimumFrameInterval = CMTime(value: 1, timescale: audioOnly ? CMTimeScale.max : CMTimeScale(frameRate))
-         conf.minimumFrameInterval = CMTime(value: 1, timescale: audioOnly ? CMTimeScale.max : (frameRate >= 60 ? 0 : CMTimeScale(frameRate)))
+         conf.minimumFrameInterval = CMTime(value: 1, timescale: audioOnly ? CMTimeScale.max : (settings.frameRate >= 60 ? 0 : CMTimeScale(settings.frameRate)))
 
 //        CMTimeScale is the denominator in the fraction
 //        conf.minimumFrameInterval = CMTime(seconds: audioOnly ? Double(CMTimeScale.max) : Double(1)/Double(frameRate), preferredTimescale: 10000)
@@ -244,17 +248,17 @@ extension AppDelegate {
                 let newY = SCContext.screen!.frame.height - nsRect.size.height - nsRect.origin.y
                 conf.sourceRect = CGRect(x: nsRect.origin.x, y: newY, width: nsRect.size.width, height: nsRect.size.height)
                 if #available(macOS 14.0, *) {
-                    conf.width = Int(conf.sourceRect.width) * (highRes == 2 ? Int(filter.pointPixelScale) : 1)
-                    conf.height = Int(conf.sourceRect.height) * (highRes == 2 ? Int(filter.pointPixelScale) : 1)
+                    conf.width = Int(conf.sourceRect.width) * (settings.resolutionScale == 2 ? Int(filter.pointPixelScale) : 1)
+                    conf.height = Int(conf.sourceRect.height) * (settings.resolutionScale == 2 ? Int(filter.pointPixelScale) : 1)
                 } else {
                     guard let pointPixelScaleOld = (SCContext.screen ?? SCContext.getSCDisplayWithMouse()!).nsScreen?.backingScaleFactor else { return }
-                    conf.width = Int(conf.sourceRect.width) * (highRes == 2 ? Int(pointPixelScaleOld) : 1)
-                    conf.height = Int(conf.sourceRect.height) * (highRes == 2 ? Int(pointPixelScaleOld) : 1)
+                    conf.width = Int(conf.sourceRect.width) * (settings.resolutionScale == 2 ? Int(pointPixelScaleOld) : 1)
+                    conf.height = Int(conf.sourceRect.height) * (settings.resolutionScale == 2 ? Int(pointPixelScaleOld) : 1)
                 }
             }
         }
         
-        let encoderIsH265 = (encoder.rawValue == Encoder.h265.rawValue) || recordHDR
+        let encoderIsH265 = settings.encoder == .h265 || settings.recordHDR
         if !audioOnly && !encoderIsH265 {
             var session: VTCompressionSession?
             let status = VTCompressionSessionCreate(
@@ -287,23 +291,25 @@ extension AppDelegate {
             try SCContext.stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: .global())
             if #available(macOS 13, *) { try SCContext.stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: .global()) }
             if !audioOnly {
-                initVideo(conf: conf)
+                initVideo(conf: conf, settings: settings)
             } else {
                 //SCContext.startTime = Date.now
-                if recordMic { startMicRecording() }
+                if settings.recordsMicrophone { startMicRecording(settings: settings) }
             }
             try await SCContext.stream.startCapture()
+            recordingSession.markStarted()
         } catch {
+            recordingSession.fail(error.localizedDescription)
             assertionFailure("capture failed".local)
             return
         }
         if !audioOnly { registerGlobalMouseMonitor() }
         DispatchQueue.main.async { updateStatusBar() }
-        if preventSleep { SleepPreventer.shared.preventSleep(reason: "Screen recording in progress") }
+        if settings.preventsSleep { SleepPreventer.shared.preventSleep(reason: "Screen recording in progress") }
     }
 
-    func prepareAudioRecording() {
-        var fileEnding = audioFormat.rawValue
+    func prepareAudioRecording(settings: RecordingSettingsSnapshot) {
+        var fileEnding = settings.audioFormat.rawValue
         var fileType = AVFileType.m4a
         let encorder = fileEnding == AudioFormat.mp3.rawValue ? "aac" : fileEnding
         switch fileEnding { // todo: I'd like to store format info differently
@@ -315,13 +321,13 @@ extension AppDelegate {
             default: assertionFailure("loaded unknown audio format: ".local + fileEnding)
         }
         let path = SCContext.getFilePath()
-        if recordMic && SCContext.streamType == .systemaudio {
-            SCContext.configureMicrophoneNoiseReduction()
+        if settings.recordsMicrophone && SCContext.streamType == .systemaudio {
+            SCContext.configureMicrophoneNoiseReduction(enabled: settings.microphoneNoiseReduction)
             SCContext.filePath = "\(path).qma"
             SCContext.filePath1 = "\(path).qma/sys.\(fileEnding)"
             SCContext.filePath2 = "\(path).qma/mic.\(fileEnding)"
             let infoJsonURL = "\(path).qma/info.json".url
-            let jsonString = "{\"format\": \"\(fileEnding)\", \"encoder\": \"\(encorder)\", \"exportMP3\": \(audioFormat.rawValue == AudioFormat.mp3.rawValue), \"sysVol\": 1.0, \"micVol\": 1.0}"
+            let jsonString = "{\"format\": \"\(fileEnding)\", \"encoder\": \"\(encorder)\", \"exportMP3\": \(settings.audioFormat == .mp3), \"sysVol\": 1.0, \"micVol\": 1.0}"
             try? fd.createDirectory(at: SCContext.filePath.url, withIntermediateDirectories: true, attributes: nil)
             try? jsonString.write(to: infoJsonURL, atomically: true, encoding: .utf8)
             
@@ -361,13 +367,13 @@ extension SCDisplay {
 }
 
 extension AppDelegate {
-    func initVideo(conf: SCStreamConfiguration) {
+    func initVideo(conf: SCStreamConfiguration, settings: RecordingSettingsSnapshot) {
         SCContext.startTime = nil
         SCContext.firstFrame = nil
         SCContext.lastVideoPTS = nil
         SCContext.adaptiveVFRSkippedFrames = 0
 
-        let fileEnding = videoFormat.rawValue
+        let fileEnding = settings.videoFormat.rawValue
         var fileType: AVFileType?
         switch fileEnding {
             case VideoFormat.mov.rawValue: fileType = AVFileType.mov
@@ -376,47 +382,45 @@ extension AppDelegate {
         }
 
         let basePath = SCContext.getFilePath()
-        if remuxAudio && recordMic && recordWinSound {
+        if settings.remuxesAudio && settings.recordsMicrophone && settings.recordsSystemAudio {
             SCContext.filePath = SCContext.mixedRecordingSourcePath(basePath: basePath, fileExtension: fileEnding)
         } else {
             SCContext.filePath = "\(basePath).\(fileEnding)"
         }
         SCContext.vW = try? AVAssetWriter.init(outputURL: SCContext.filePath.url, fileType: fileType!)
-        let encoderIsH265 = (encoder.rawValue == Encoder.h265.rawValue) || recordHDR
-        let fpsMultiplier: Double = Double(frameRate)/8
-        let encoderMultiplier: Double = encoderIsH265 ? 0.5 : 0.9
-        let resolution = Double(max(600, conf.width)) * Double(max(600, conf.height))
-        var qualityMultiplier = 1 - (log10(sqrt(resolution) * fpsMultiplier) / 5)
-        switch videoQuality {
-            case 0.3: qualityMultiplier = max(0.1, qualityMultiplier)
-            case 0.7: qualityMultiplier = max(0.4, min(0.6, qualityMultiplier * 3))
-            default: qualityMultiplier = 1.0
-        }
+        let encoderIsH265 = settings.encoder == .h265 || settings.recordHDR
         let h264Level = AVVideoProfileLevelH264HighAutoLevel
-        let h265Level = recordHDR ? kVTProfileLevel_HEVC_Main10_AutoLevel : kVTProfileLevel_HEVC_Main_AutoLevel
-
-        let targetBitrate = resolution * fpsMultiplier * encoderMultiplier * qualityMultiplier * (recordHDR ? 2 : 1)
-        let configuredBitrate = videoBitrate.rawValue * 1000
-        let averageBitrate = configuredBitrate > 0 ? configuredBitrate : max(200000, Int(targetBitrate))
-        let maxKeyFrameIntervalDuration = adaptiveVFR ? 18 : 2
-        print("framerate set in app: \(frameRate)")
-        print("target bitrate: \(targetBitrate/1000000)")
-        print("average bitrate: \(Double(averageBitrate)/1000000)")
+        let h265Level = settings.recordHDR ? kVTProfileLevel_HEVC_Main10_AutoLevel : kVTProfileLevel_HEVC_Main_AutoLevel
+        let encodingPolicy = VideoEncodingPolicy.evaluate(
+            VideoEncodingPolicyInput(
+                width: conf.width,
+                height: conf.height,
+                frameRate: settings.frameRate,
+                encoder: settings.encoder,
+                recordsHDR: settings.recordHDR,
+                quality: settings.videoQuality,
+                configuredBitrateKbps: settings.videoBitrate.rawValue,
+                adaptiveVFR: settings.adaptiveVFR
+            )
+        )
+        print("framerate set in app: \(settings.frameRate)")
+        print("target bitrate: \(encodingPolicy.targetBitrate/1000000)")
+        print("average bitrate: \(Double(encodingPolicy.averageBitrate)/1000000)")
 
         var videoSettings: [String: Any] = [
-            AVVideoCodecKey: encoderIsH265 ? ((withAlpha && !recordHDR) ? AVVideoCodecType.hevcWithAlpha : AVVideoCodecType.hevc) : AVVideoCodecType.h264,
+            AVVideoCodecKey: encoderIsH265 ? (settings.withAlpha ? AVVideoCodecType.hevcWithAlpha : AVVideoCodecType.hevc) : AVVideoCodecType.h264,
             // yes, not ideal if we want more than these encoders in the future, but it's ok for now
             AVVideoWidthKey: conf.width,
             AVVideoHeightKey: conf.height,
             AVVideoCompressionPropertiesKey: [
                 AVVideoProfileLevelKey: encoderIsH265 ? h265Level : h264Level,
-                AVVideoAverageBitRateKey: averageBitrate,
-                AVVideoExpectedSourceFrameRateKey: frameRate,
-                AVVideoMaxKeyFrameIntervalDurationKey: maxKeyFrameIntervalDuration,
+                AVVideoAverageBitRateKey: encodingPolicy.averageBitrate,
+                AVVideoExpectedSourceFrameRateKey: settings.frameRate,
+                AVVideoMaxKeyFrameIntervalDurationKey: encodingPolicy.maxKeyFrameIntervalDuration,
             ] as [String : Any]
         ]
         
-        if !recordHDR {
+        if !settings.recordHDR {
             videoSettings[AVVideoColorPropertiesKey] = [
                 AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
@@ -434,30 +438,30 @@ extension AppDelegate {
             if SCContext.vW.canAdd(SCContext.awInput) { SCContext.vW.add(SCContext.awInput) }
         }
 
-        if recordMic {
-            SCContext.configureMicrophoneNoiseReduction()
+        if settings.recordsMicrophone {
+            SCContext.configureMicrophoneNoiseReduction(enabled: settings.microphoneNoiseReduction)
             let reductionEnabled = SCContext.microphoneNoiseReductionPipeline != nil
             let sampleRate = reductionEnabled ? MicrophoneNoiseReductionPipeline.outputSampleRate : (SCContext.getSampleRate() ?? 48000)
-            let settings = SCContext.updateAudioSettings(rate: sampleRate, channels: reductionEnabled ? MicrophoneNoiseReductionPipeline.outputChannelCount : nil)
+            let audioSettings = SCContext.updateAudioSettings(rate: sampleRate, channels: reductionEnabled ? MicrophoneNoiseReductionPipeline.outputChannelCount : nil)
             
-            SCContext.micInput = AVAssetWriterInput(mediaType: AVMediaType.audio, outputSettings: settings)
+            SCContext.micInput = AVAssetWriterInput(mediaType: AVMediaType.audio, outputSettings: audioSettings)
             SCContext.micInput.expectsMediaDataInRealTime = true
             if SCContext.vW.canAdd(SCContext.micInput) { SCContext.vW.add(SCContext.micInput) }
-            startMicRecording()
+            startMicRecording(settings: settings)
         }
         SCContext.vW.startWriting()
     }
     
-    func startMicRecording() {
-        if micDevice == "default" {
-            if enableAEC && SCContext.microphoneNoiseReductionPipeline == nil {
+    func startMicRecording(settings: RecordingSettingsSnapshot) {
+        if settings.microphoneDevice == "default" {
+            if settings.enablesAEC && SCContext.microphoneNoiseReductionPipeline == nil {
                 var level = AUVoiceIOOtherAudioDuckingLevel.mid
-                switch AECLevel {
+                switch settings.aecLevel {
                     case "min": level = .min
                     case "max": level = .max
                     default: level = .mid
                 }
-                try? SCContext.AECEngine.startAudioStream(enableAEC: enableAEC, duckingLevel: level, audioBufferHandler: { pcmBuffer in
+                try? SCContext.AECEngine.startAudioStream(enableAEC: settings.enablesAEC, duckingLevel: level, audioBufferHandler: { pcmBuffer in
                     if SCContext.isPaused || SCContext.startTime == nil { return }
                     SCContext.appendMicrophoneAudio(pcmBuffer)
                 })
@@ -483,7 +487,8 @@ extension AppDelegate {
         DispatchQueue.main.async { camWindow.close() }
         print("[Presenter Overlay ON]")
         isPresenterON = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(poSafeDelay)) {
+        let safeDelay = recordingSession.request?.settings.presenterOverlaySafeDelay ?? poSafeDelay
+        DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(safeDelay)) {
             self.isCameraReady = true
         }
     }
@@ -504,7 +509,7 @@ extension AppDelegate {
             
             var ciImage = CIImage(cvPixelBuffer: imageBuffer)
             let url = "\(SCContext.getFilePath(capture: true)).png".url
-            if !recordHDR {
+            if !(recordingSession.request?.settings.recordHDR ?? recordHDR) {
                 sampleBuffer.nsImage?.saveToFile(url)
             } else {
                 let context = CIContext()
@@ -598,7 +603,8 @@ extension AppDelegate {
                         if type != presenterType {
                             print("Presenter Overlay set to \"\(type)\"!")
                             isCameraReady = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(poSafeDelay)) {
+                            let safeDelay = recordingSession.request?.settings.presenterOverlaySafeDelay ?? poSafeDelay
+                            DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(safeDelay)) {
                                 self.isCameraReady = true
                             }
                             presenterType = type
@@ -606,7 +612,11 @@ extension AppDelegate {
                     }
                 }
                 if isPresenterON && !isCameraReady { break }
-                if shouldSkipAdaptiveVFRFrame(sampleBuffer: SampleBuffer, attachments: attachments) { return }
+                if shouldSkipAdaptiveVFRFrame(
+                    sampleBuffer: SampleBuffer,
+                    attachments: attachments,
+                    settings: recordingSession.request?.settings
+                ) { return }
                 if SCContext.firstFrame == nil { SCContext.firstFrame = SampleBuffer }
                 SCContext.vwInput.append(SampleBuffer)
                 SCContext.lastVideoPTS = CMSampleBufferGetPresentationTimeStamp(SampleBuffer)
@@ -638,24 +648,32 @@ extension AppDelegate {
         }
     }
 
-    func shouldSkipAdaptiveVFRFrame(sampleBuffer: CMSampleBuffer, attachments: [SCStreamFrameInfo: Any]) -> Bool {
+    func shouldSkipAdaptiveVFRFrame(
+        sampleBuffer: CMSampleBuffer,
+        attachments: [SCStreamFrameInfo: Any],
+        settings: RecordingSettingsSnapshot? = nil
+    ) -> Bool {
+        let adaptiveVFR = settings?.adaptiveVFR ?? self.adaptiveVFR
+        let recordHDR = settings?.recordHDR ?? self.recordHDR
+        let frameRate = settings?.frameRate ?? self.frameRate
         guard adaptiveVFR, !recordHDR, SCContext.firstFrame != nil else { return false }
         guard let lastPTS = SCContext.lastVideoPTS else { return false }
 
         let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let elapsed = CMTimeGetSeconds(CMTimeSubtract(pts, lastPTS))
-        guard elapsed >= 0 else { return false }
-        let maximumFPSInterval = frameRate > 0 ? 1.0 / Double(frameRate) : 1.0 / 15.0
-        if elapsed < maximumFPSInterval * 0.9 { return true }
-
         let dirtyArea = adaptiveDirtyArea(from: attachments)
-        if dirtyArea > 0 { return false }
-
-        let idleKeepAliveInterval = 5.0
-        if elapsed >= idleKeepAliveInterval { return false }
-
-        SCContext.adaptiveVFRSkippedFrames += 1
-        return true
+        let shouldSkip = AdaptiveVFRPolicy.shouldSkip(
+            AdaptiveVFRInput(
+                enabled: adaptiveVFR,
+                recordsHDR: recordHDR,
+                hasFirstFrame: SCContext.firstFrame != nil,
+                previousVideoTime: CMTimeGetSeconds(lastPTS),
+                currentVideoTime: CMTimeGetSeconds(pts),
+                dirtyArea: dirtyArea,
+                frameRate: frameRate
+            )
+        )
+        if shouldSkip { SCContext.adaptiveVFRSkippedFrames += 1 }
+        return shouldSkip
     }
 
     func adaptiveDirtyArea(from attachments: [SCStreamFrameInfo: Any]) -> Double {

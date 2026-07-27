@@ -185,11 +185,18 @@ class SCContext {
     static func getFilePath(capture: Bool = false) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "y-MM-dd HH.mm.ss"
-        return ud.string(forKey: "saveDirectory")! + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
+        let outputDirectory = AppDelegate.shared.recordingSession.request?.settings.outputDirectory
+            ?? ud.string(forKey: "saveDirectory")!
+        return outputDirectory + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
     }
     
     static func getAudioChannelCount() -> Int {
-        ud.integer(forKey: "audioChannels") == AudioChannels.mono.rawValue ? AudioChannels.mono.rawValue : AudioChannels.stereo.rawValue
+        if let channels = AppDelegate.shared.recordingSession.request?.settings.audioChannels.rawValue {
+            return channels
+        }
+        return ud.integer(forKey: "audioChannels") == AudioChannels.mono.rawValue
+            ? AudioChannels.mono.rawValue
+            : AudioChannels.stereo.rawValue
     }
 
     static func makeAudioPCMBufferForConfiguredChannels(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
@@ -211,11 +218,13 @@ class SCContext {
         return makeAudioSampleBufferForConfiguredChannels(pcmBuffer, presentationTimeStamp: CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
     }
 
-    static func updateAudioSettings(format: String = ud.string(forKey: "audioFormat") ?? "", rate: Int = 48000, channels: Int? = nil) -> [String : Any] {
+    static func updateAudioSettings(format: String? = nil, rate: Int = 48000, channels: Int? = nil) -> [String : Any] {
+        let activeSettings = AppDelegate.shared.recordingSession.request?.settings
+        let resolvedFormat = format ?? activeSettings?.audioFormat.rawValue ?? ud.string(forKey: "audioFormat") ?? ""
         var audioSettings: [String : Any] = [AVSampleRateKey : rate, AVNumberOfChannelsKey : channels ?? getAudioChannelCount()] // reset audioSettings
-        var bitRate = ud.integer(forKey: "audioQuality") * 1000
+        var bitRate = (activeSettings?.audioQuality.rawValue ?? ud.integer(forKey: "audioQuality")) * 1000
         if rate < 44100 { bitRate = min(64000, bitRate / 2) }
-        switch format {
+        switch resolvedFormat {
         case AudioFormat.mp3.rawValue: fallthrough
         case AudioFormat.aac.rawValue:
             audioSettings[AVFormatIDKey] = kAudioFormatMPEG4AAC
@@ -226,7 +235,8 @@ class SCContext {
         case AudioFormat.flac.rawValue:
             audioSettings[AVFormatIDKey] = kAudioFormatFLAC
         case AudioFormat.opus.rawValue:
-            audioSettings[AVFormatIDKey] = ud.string(forKey: "videoFormat") != VideoFormat.mp4.rawValue ? kAudioFormatOpus : kAudioFormatMPEG4AAC
+            let videoFormat = activeSettings?.videoFormat.rawValue ?? ud.string(forKey: "videoFormat")
+            audioSettings[AVFormatIDKey] = videoFormat != VideoFormat.mp4.rawValue ? kAudioFormatOpus : kAudioFormatMPEG4AAC
             audioSettings[AVEncoderBitRateKey] =  bitRate
         default:
             assertionFailure("unknown audio format while setting audio settings: ".local + (ud.string(forKey: "audioFormat") ?? "[no defaults]".local))
@@ -235,7 +245,8 @@ class SCContext {
     }
     
     static func getBackgroundColor() -> CGColor {
-        guard let color = ud.string(forKey: "background") else { return CGColor.black  }
+        guard let color = AppDelegate.shared.recordingSession.request?.settings.background.rawValue
+            ?? ud.string(forKey: "background") else { return CGColor.black  }
         if color == BackgroundType.wallpaper.rawValue { return CGColor.black }
         switch color {
             case "clear": backgroundColor = CGColor.clear
@@ -347,6 +358,11 @@ class SCContext {
     
     static func pauseRecording() {
         isPaused.toggle()
+        if isPaused {
+            AppDelegate.shared.recordingSession.markPaused()
+        } else {
+            AppDelegate.shared.recordingSession.markResumed()
+        }
         PopoverState.shared.isPaused = isPaused
         if !isPaused {
             isResume = true
@@ -355,7 +371,19 @@ class SCContext {
     }
     
     static func stopRecording() {
-        if ud.bool(forKey: "preventSleep") { SleepPreventer.shared.allowSleep() }
+        let activeRequest = AppDelegate.shared.recordingSession.request
+        AppDelegate.shared.recordingSession.beginStopping()
+        defer { AppDelegate.shared.recordingSession.complete() }
+        let settings = activeRequest?.settings
+        let recordsMicrophone = settings?.recordsMicrophone ?? ud.bool(forKey: "recordMic")
+        let recordsSystemAudio = settings?.recordsSystemAudio ?? ud.bool(forKey: "recordWinSound")
+        let remuxesAudio = settings?.remuxesAudio ?? ud.bool(forKey: "remuxAudio")
+        let showsPreview = settings?.showsPreview ?? ud.bool(forKey: "showPreview")
+        let trimsAfterRecording = settings?.trimsAfterRecording ?? ud.bool(forKey: "trimAfterRecord")
+        let audioFormat = settings?.audioFormat ?? AudioFormat(rawValue: ud.string(forKey: "audioFormat") ?? "") ?? .aac
+        let audioQuality = settings?.audioQuality ?? AudioQuality(rawValue: ud.integer(forKey: "audioQuality")) ?? .high
+
+        if settings?.preventsSleep ?? ud.bool(forKey: "preventSleep") { SleepPreventer.shared.allowSleep() }
         autoStop = 0
         lastPTS = nil
         lastVideoPTS = nil
@@ -371,12 +399,13 @@ class SCContext {
         
         if stream != nil { stream.stopCapture() }
         stream = nil
-        if ud.bool(forKey: "recordMic") {
+        AppDelegate.shared.recordingSession.beginFinalizing()
+        if recordsMicrophone {
             AudioRecorder.shared.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
             audioEngine.stop()
             //DispatchQueue.global().async { try? audioEngine.inputNode.setVoiceProcessingEnabled(false) }
-            if ud.bool(forKey: "enableAEC") { try? AECEngine.stopAudioUnit() }
+            if settings?.enablesAEC ?? ud.bool(forKey: "enableAEC") { try? AECEngine.stopAudioUnit() }
             flushMicrophoneNoiseReduction()
             micInput.markAsFinished()
         }
@@ -389,22 +418,23 @@ class SCContext {
                 if vW.status != .completed {
                     print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
                     let err = vW.error?.localizedDescription ?? "Unknow Error"
+                    AppDelegate.shared.recordingSession.fail(err)
                     showNotification(title: "Failed to save file".local, body: "\(err)", id: "quickrecorder.error.\(UUID().uuidString)")
                 } else {
-                    if ud.bool(forKey: "recordMic") && ud.bool(forKey: "recordWinSound") && ud.bool(forKey: "remuxAudio") {
+                    if recordsMicrophone && recordsSystemAudio && remuxesAudio {
                         mixAudioTracks(videoURL: filePath.url) { result in
                             switch result {
                             case .success(let url):
                                 print("Exported video to \(String(describing: url.path))")
                                 handleCompletedVideo(url: url)
-                                if !ud.bool(forKey: "showPreview") {
+                                if !showsPreview {
                                     showNotification(title: "Recording Completed".local, body: String(format: "File saved to: %@".local, url.path), id: "quickrecorder.completed.\(UUID().uuidString)")
                                 }
                                 DispatchQueue.main.async {
-                                    if ud.bool(forKey: "trimAfterRecord") {
+                                    if trimsAfterRecording {
                                         AppDelegate.shared.createNewWindow(view: VideoTrimmerView(videoURL: url), title: url.lastPathComponent, only: false)
                                     } else {
-                                        showPreview(path: url.path)
+                                        showPreview(path: url.path, enabled: showsPreview)
                                     }
                                 }
                             case .failure(let error):
@@ -417,7 +447,7 @@ class SCContext {
             }
             dispatchGroup.wait()
         } else {
-            if ud.bool(forKey: "recordMic") { vW.finishWriting {} }
+            if recordsMicrophone { vW.finishWriting {} }
         }
         
         DispatchQueue.main.async {
@@ -433,26 +463,26 @@ class SCContext {
         audioFile = nil // close audio file
         audioFile2 = nil // close audio file2
         if streamType == .systemaudio {
-            if ud.string(forKey: "audioFormat") == AudioFormat.mp3.rawValue && !ud.bool(forKey: "recordMic") {
+            if audioFormat == .mp3 && !recordsMicrophone {
                 Task {
                     let outPutUrl = (String(filePath.dropLast(4)) + ".mp3").url
                     do {
-                        try await m4a2mp3(inputUrl: filePath1.url, outputUrl: outPutUrl)
+                        try await m4a2mp3(inputUrl: filePath1.url, outputUrl: outPutUrl, bitrateKbps: audioQuality.rawValue)
                         try? fd.removeItem(atPath: filePath1)
-                        if !ud.bool(forKey: "showPreview") {
+                        if !showsPreview {
                             let title = "Recording Completed".local
                             let body = String(format: "File saved to: %@".local, outPutUrl.path.removingPercentEncoding!)
                             let id = "quickrecorder.completed.\(UUID().uuidString)"
                             showNotification(title: title, body: body, id: id)
                         } else {
-                            DispatchQueue.main.async { showPreview(path: outPutUrl.path, image: NSImage(named: "audioIcon")) }
+                            DispatchQueue.main.async { showPreview(path: outPutUrl.path, image: NSImage(named: "audioIcon"), enabled: showsPreview) }
                         }
                     } catch {
                         showNotification(title: "Failed to save file".local, body: "\(error.localizedDescription)", id: "quickrecorder.error.\(UUID().uuidString)")
                     }
                 }
             } else {
-                if ud.bool(forKey: "remuxAudio") && ud.bool(forKey: "recordMic") {
+                if remuxesAudio && recordsMicrophone {
                     let fileURL = filePath.url
                     let document = try? qmaPackageHandle.load(from: fileURL)
                     if let document = document {
@@ -466,13 +496,13 @@ class SCContext {
                         audioPlayerManager.saveFile(saveURL, saveAsMP3: exportMP3)
                     }
                 } else {
-                    if !ud.bool(forKey: "showPreview") {
+                    if !showsPreview {
                         let title = "Recording Completed".local
                         let body = String(format: "File saved to: %@".local, filePath)
                         let id = "quickrecorder.completed.\(UUID().uuidString)"
                         showNotification(title: title, body: body, id: id)
                     } else {
-                        showPreview(path: filePath, image: NSImage(named: "qmaIcon"))
+                        showPreview(path: filePath, image: NSImage(named: "qmaIcon"), enabled: showsPreview)
                     }
                 }
             }
@@ -486,23 +516,24 @@ class SCContext {
         AppDelegate.shared.presenterType = "OFF"
         updateStatusBar()
         
-        if !(ud.bool(forKey: "recordMic") && ud.bool(forKey: "recordWinSound") && ud.bool(forKey: "remuxAudio")) && streamType != .systemaudio {
+        if !(recordsMicrophone && recordsSystemAudio && remuxesAudio) && streamType != .systemaudio {
             if let vW = vW {
                 if vW.status != .completed {
+                    AppDelegate.shared.recordingSession.fail(vW.error?.localizedDescription ?? "Video writer did not complete")
                     streamType = nil
                     return
                 }
             }
-            if !ud.bool(forKey: "showPreview") {
+            if !showsPreview {
                 let title = "Recording Completed".local
                 let body = String(format: "File saved to: %@".local, filePath)
                 let id = "quickrecorder.completed.\(UUID().uuidString)"
                 showNotification(title: title, body: body, id: id)
             } else {
-                showPreview(path: filePath)
+                showPreview(path: filePath, enabled: showsPreview)
             }
             handleCompletedVideo(url: filePath.url)
-            trimVideo()
+            trimVideo(enabled: trimsAfterRecording)
         }
         
         streamType = nil
@@ -514,8 +545,8 @@ class SCContext {
         ArchiveCompressionService.shared.recordingDidComplete(url: url)
     }
     
-    static func showPreview(path: String, image: NSImage? = nil) {
-        if !ud.bool(forKey: "showPreview") { return }
+    static func showPreview(path: String, image: NSImage? = nil, enabled: Bool? = nil) {
+        if !(enabled ?? ud.bool(forKey: "showPreview")) { return }
         var previewImage: NSImage?
         let previewURL = fd.temporaryDirectory.appendingPathComponent("qr-preview.jpg")
         if image == nil { firstFrame?.nsImage?.saveToFile(previewURL, type: .jpeg) }
@@ -529,13 +560,13 @@ class SCContext {
         }
     }
     
-    static func m4a2mp3(inputUrl: URL, outputUrl: URL) async throws {
+    static func m4a2mp3(inputUrl: URL, outputUrl: URL, bitrateKbps: Int? = nil) async throws {
         let progress = Progress()
         let lameEncoder = try SwiftLameEncoder(
             sourceUrl: inputUrl,
             configuration: .init(
                 sampleRate: .custom(48000),
-                bitrateMode: .constant(Int32(ud.integer(forKey: "audioQuality"))),
+                bitrateMode: .constant(Int32(bitrateKbps ?? ud.integer(forKey: "audioQuality"))),
                 quality: .nearBest
             ),
             destinationUrl: outputUrl,
@@ -544,8 +575,8 @@ class SCContext {
         try await lameEncoder.encode(priority: .userInitiated)
     }
     
-    static func trimVideo() {
-        if ud.bool(forKey: "trimAfterRecord") {
+    static func trimVideo(enabled: Bool? = nil) {
+        if enabled ?? ud.bool(forKey: "trimAfterRecord") {
             let fileURL = filePath.url
             AppDelegate.shared.createNewWindow(view: VideoTrimmerView(videoURL: fileURL), title: fileURL.lastPathComponent, only: false)
         }
@@ -572,7 +603,8 @@ class SCContext {
     }
     
     static func getCurrentMic() -> AVCaptureDevice? {
-        let deviceName = ud.string(forKey: "micDevice")
+        let deviceName = AppDelegate.shared.recordingSession.request?.settings.microphoneDevice
+            ?? ud.string(forKey: "micDevice")
         return getMicrophone().first(where: { $0.localizedName == deviceName })
     }
     

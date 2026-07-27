@@ -52,9 +52,15 @@
 		18FA000E2E00000000000000 /* ArchiveCompressionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA000D2E00000000000000 /* ArchiveCompressionService.swift */; };
 		18FA00102E00000000000000 /* ArchiveJobView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA000F2E00000000000000 /* ArchiveJobView.swift */; };
 		18FA00122E00000000000000 /* ArchiveSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA00112E00000000000000 /* ArchiveSettingsSection.swift */; };
+		18FA00142E00000000000000 /* ArchiveRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FA00132E00000000000000 /* ArchiveRecoveryView.swift */; };
 		18FA00222E00000000000000 /* FFmpegRuntime in Resources */ = {isa = PBXBuildFile; fileRef = 18FA00212E00000000000000 /* FFmpegRuntime */; };
 		18FB00022E00000000000000 /* MicrophoneNoiseReductionPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FB00012E00000000000000 /* MicrophoneNoiseReductionPipeline.swift */; };
 		18FB00052E00000000000000 /* RNNoiseProcessor in Frameworks */ = {isa = PBXBuildFile; productRef = 18FB00042E00000000000000 /* RNNoiseProcessor */; };
+		18FC00032E00000000000000 /* ArchiveJobCore in Frameworks */ = {isa = PBXBuildFile; productRef = 18FC00022E00000000000000 /* ArchiveJobCore */; };
+		18FD00022E00000000000000 /* RecordingDomainBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD00012E00000000000000 /* RecordingDomainBridge.swift */; };
+		18FD00052E00000000000000 /* RecordingDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 18FD00042E00000000000000 /* RecordingDomain */; };
+		18FD00072E00000000000000 /* RecordingPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD00062E00000000000000 /* RecordingPreferencesStore.swift */; };
+		18FD00092E00000000000000 /* RecordingSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD00082E00000000000000 /* RecordingSessionCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -109,8 +115,12 @@
 		18FA000D2E00000000000000 /* ArchiveCompressionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveCompressionService.swift; sourceTree = "<group>"; };
 		18FA000F2E00000000000000 /* ArchiveJobView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveJobView.swift; sourceTree = "<group>"; };
 		18FA00112E00000000000000 /* ArchiveSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSettingsSection.swift; sourceTree = "<group>"; };
+		18FA00132E00000000000000 /* ArchiveRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveRecoveryView.swift; sourceTree = "<group>"; };
 		18FA00212E00000000000000 /* FFmpegRuntime */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources/FFmpegRuntime; sourceTree = "<group>"; };
 		18FB00012E00000000000000 /* MicrophoneNoiseReductionPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneNoiseReductionPipeline.swift; sourceTree = "<group>"; };
+		18FD00012E00000000000000 /* RecordingDomainBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingDomainBridge.swift; sourceTree = "<group>"; };
+		18FD00062E00000000000000 /* RecordingPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingPreferencesStore.swift; sourceTree = "<group>"; };
+		18FD00082E00000000000000 /* RecordingSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,12 +133,24 @@
 				18F40B492BFB988A00F0AC70 /* SwiftLAME in Frameworks */,
 				185582A62D1D1CC100F0CF47 /* AECAudioStream in Frameworks */,
 				18FB00052E00000000000000 /* RNNoiseProcessor in Frameworks */,
+				18FC00032E00000000000000 /* ArchiveJobCore in Frameworks */,
+				18FD00052E00000000000000 /* RecordingDomain in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		18FD00002E00000000000000 /* Recording */ = {
+			isa = PBXGroup;
+			children = (
+				18FD00012E00000000000000 /* RecordingDomainBridge.swift */,
+				18FD00062E00000000000000 /* RecordingPreferencesStore.swift */,
+				18FD00082E00000000000000 /* RecordingSessionCoordinator.swift */,
+			);
+			path = Recording;
+			sourceTree = "<group>";
+		};
 		181724062BE3BF2000F5F539 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -191,6 +213,7 @@
 				18FB00012E00000000000000 /* MicrophoneNoiseReductionPipeline.swift */,
 				184CAEC62BDCCC2300D61D57 /* AVContext.swift */,
 				18FA00002E00000000000000 /* Archive */,
+				18FD00002E00000000000000 /* Recording */,
 				18FA00212E00000000000000 /* FFmpegRuntime */,
 				18A551F52D0749C3008FC5F6 /* Supports */,
 				18D3BE022BCEB1D4006CFFC0 /* ViewModel */,
@@ -233,6 +256,7 @@
 				18CEED912D08312C00FBC4BF /* PreviewView.swift */,
 				18FA000F2E00000000000000 /* ArchiveJobView.swift */,
 				18FA00112E00000000000000 /* ArchiveSettingsSection.swift */,
+				18FA00132E00000000000000 /* ArchiveRecoveryView.swift */,
 			);
 			path = ViewModel;
 			sourceTree = "<group>";
@@ -259,6 +283,8 @@
 				185582A52D1D1CC100F0CF47 /* AECAudioStream */,
 				18AFF77A2D5F91F800C795A1 /* KeyboardShortcuts */,
 				18FB00042E00000000000000 /* RNNoiseProcessor */,
+				18FC00022E00000000000000 /* ArchiveJobCore */,
+				18FD00042E00000000000000 /* RecordingDomain */,
 			);
 			productName = QuickRecorder;
 			productReference = 18D3BDE72BCE5DC1006CFFC0 /* QuickRecorder.app */;
@@ -297,6 +323,8 @@
 				185582A42D1D1CC100F0CF47 /* XCRemoteSwiftPackageReference "AECAudioStream" */,
 				18AFF7792D5F91F800C795A1 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				18FB00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RNNoiseProcessor" */,
+				18FC00012E00000000000000 /* XCLocalSwiftPackageReference "Packages/ArchiveJobCore" */,
+				18FD00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RecordingDomain" */,
 			);
 			productRefGroup = 18D3BDE82BCE5DC1006CFFC0 /* Products */;
 			projectDirPath = "";
@@ -353,6 +381,7 @@
 				18FA000E2E00000000000000 /* ArchiveCompressionService.swift in Sources */,
 				18FA00102E00000000000000 /* ArchiveJobView.swift in Sources */,
 				18FA00122E00000000000000 /* ArchiveSettingsSection.swift in Sources */,
+				18FA00142E00000000000000 /* ArchiveRecoveryView.swift in Sources */,
 				18A551FA2D0749C3008FC5F6 /* WindowAccessor.swift in Sources */,
 				18A551FB2D0749C3008FC5F6 /* WindowHighlighter.swift in Sources */,
 				18D3BE042BCEC847006CFFC0 /* SCContext.swift in Sources */,
@@ -365,6 +394,9 @@
 				18D3BDEB2BCE5DC1006CFFC0 /* QuickRecorderApp.swift in Sources */,
 				18FEBDAC2BD01E82003F09BC /* WinSelector.swift in Sources */,
 				18FB00022E00000000000000 /* MicrophoneNoiseReductionPipeline.swift in Sources */,
+				18FD00022E00000000000000 /* RecordingDomainBridge.swift in Sources */,
+				18FD00072E00000000000000 /* RecordingPreferencesStore.swift in Sources */,
+				18FD00092E00000000000000 /* RecordingSessionCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,6 +692,14 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/RNNoiseProcessor;
 		};
+		18FC00012E00000000000000 /* XCLocalSwiftPackageReference "Packages/ArchiveJobCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ArchiveJobCore;
+		};
+		18FD00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RecordingDomain" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/RecordingDomain;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -687,6 +727,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 18FB00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RNNoiseProcessor" */;
 			productName = RNNoiseProcessor;
+		};
+		18FC00022E00000000000000 /* ArchiveJobCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18FC00012E00000000000000 /* XCLocalSwiftPackageReference "Packages/ArchiveJobCore" */;
+			productName = ArchiveJobCore;
+		};
+		18FD00042E00000000000000 /* RecordingDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18FD00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RecordingDomain" */;
+			productName = RecordingDomain;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -25,6 +25,11 @@ Completed recordings can be archived with FFmpeg and SVT-AV1. The archive
 subsystem preserves the source recording, reports progress, writes a job
 manifest, and validates streams, duration, timestamps, and decode behavior.
 
+The development line is adding versioned manifests, explicit interrupted-job
+classification, task-owned temporary paths, recovery review, and coordinated
+quit behavior. These behaviors remain development state until the validation
+gates in [testing.md](testing.md) pass.
+
 Generated FFmpeg binaries are not stored in Git. Developers can supply a local
 runtime explicitly or build a package with the scripts under `Tools/Archive`.
 

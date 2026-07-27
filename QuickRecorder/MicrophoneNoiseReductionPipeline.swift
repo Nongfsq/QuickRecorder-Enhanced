@@ -89,9 +89,9 @@ final class MicrophoneNoiseReductionPipeline {
 }
 
 extension SCContext {
-    static func configureMicrophoneNoiseReduction() {
+    static func configureMicrophoneNoiseReduction(enabled: Bool? = nil) {
         microphoneNoiseReductionPipeline = nil
-        guard ud.bool(forKey: "microphoneNoiseReduction") else { return }
+        guard enabled ?? ud.bool(forKey: "microphoneNoiseReduction") else { return }
         do {
             microphoneNoiseReductionPipeline = try MicrophoneNoiseReductionPipeline()
             print("RNNoise microphone reduction enabled (80% processed / 20% dry)")
