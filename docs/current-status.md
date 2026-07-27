@@ -2,16 +2,17 @@
 
 ## Released baseline
 
-The latest published source checkpoint is `v1.7.0-alpha.1`. It establishes the
-fork-owned bundle identity, native recording features, RNNoise microphone
-processing, and an experimental AV1 archive workflow.
+The latest published source checkpoint is `v1.7.0-alpha.2`. It establishes
+durable archive recovery, typed recording-domain boundaries, role-aware
+multi-display window recovery, and reliable Preferences routing on top of the
+fork-owned native recording and RNNoise baseline.
 
 ## Active engineering work
 
-The current development line is establishing durable archive-job recovery and
-a modular architecture baseline. Until that work passes its package, static,
-media-integration, and signed Release gates, it is development state rather
-than released behavior.
+The current development line continues the modular architecture migration. The
+archive recovery, recording policy, and window placement foundations are now a
+released source checkpoint; moving live media callback and writer ownership out
+of the compatibility context remains development work.
 
 The architecture direction is a native Swift modular monolith:
 
