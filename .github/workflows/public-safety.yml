@@ -22,3 +22,5 @@ jobs:
         run: swift test --package-path Packages/ArchiveJobCore
       - name: Test recording domain
         run: swift test --package-path Packages/RecordingDomain
+      - name: Test window placement policy
+        run: swift test --package-path Packages/WindowPlacementCore

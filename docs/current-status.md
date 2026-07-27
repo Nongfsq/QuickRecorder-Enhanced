@@ -32,6 +32,14 @@ boundary and is not yet complete. A lock-protected coordinator now owns request
 identity and legal lifecycle transitions, but sample append and writer resource
 ownership have not yet moved out of the compatibility context.
 
+Ordinary user windows now use a role-aware placement policy. Settings, the main
+panel, archive/recovery/editor content, document windows, and movable utility
+panels are revalidated against live display visible frames when monitors are
+removed or rearranged. Capture-bound overlays and mouse/capture transients are
+explicitly excluded so recovery cannot corrupt recording geometry. The pure
+policy is covered by Debug and Release package tests; real monitor disconnect
+behavior remains a human-run installed-app validation.
+
 Archive jobs now persist versioned state, defer orderly application termination
 until work finishes or bounded cancellation completes, and expose recovery
 actions derived from the on-disk source/output/temporary-file state. Recovery

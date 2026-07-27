@@ -82,7 +82,10 @@ decisions and defines evidence-based revisit triggers.
 
 - [ ] **ARCH-201 — Typed routes and windows.** Replace localized-title lookup
   with stable route/window IDs and coordinator ownership. Acceptance: multi-window
-  localization tests leave no orphan monitors or panels.
+  localization tests leave no orphan monitors or panels. Progress: a role-aware
+  placement coordinator now keeps Settings and ordinary user windows reachable
+  across display changes; localized-title routing and complete window ownership
+  remain open.
 - [ ] **ARCH-202 — Capture catalog boundary.** Provide immutable shareable-content
   snapshots and cancellable thumbnails. Acceptance: selectors no longer mutate
   a shared catalog singleton.

@@ -425,14 +425,11 @@ extension AppDelegate {
     }
     
     func createNewWindow(view: some View, title: String, random: Bool = false, only: Bool = true) {
-        guard let screen = SCContext.getScreenWithMouse() else { return }
         if only { closeAllWindow() }
         var seed = 0.0
         if random { seed = CGFloat(Int(arc4random_uniform(401)) - 200) }
-        let wX = (screen.frame.width - 780) / 2 + seed + screen.frame.minX
-        let wY = (screen.frame.height - 555) / 2 + 100 + seed + screen.frame.minY
         let contentView = NSHostingView(rootView: view)
-        contentView.frame = NSRect(x: wX, y: wY, width: 780, height: 555)
+        contentView.frame = NSRect(x: 0, y: 0, width: 780, height: 555)
         let window = NSWindow(contentRect: contentView.frame, styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = title
         window.contentView = contentView
@@ -440,6 +437,12 @@ extension AppDelegate {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
+        WindowPlacementCoordinator.shared.placeNew(
+            window,
+            role: .content,
+            preferredScreen: SCContext.getScreenWithMouse() ?? NSScreen.main,
+            offset: CGPoint(x: seed, y: seed)
+        )
         window.makeKeyAndOrderFront(self)
         window.orderFrontRegardless()
     }

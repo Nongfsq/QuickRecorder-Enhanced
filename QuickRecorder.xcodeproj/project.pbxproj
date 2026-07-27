@@ -61,6 +61,8 @@
 		18FD00052E00000000000000 /* RecordingDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 18FD00042E00000000000000 /* RecordingDomain */; };
 		18FD00072E00000000000000 /* RecordingPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD00062E00000000000000 /* RecordingPreferencesStore.swift */; };
 		18FD00092E00000000000000 /* RecordingSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FD00082E00000000000000 /* RecordingSessionCoordinator.swift */; };
+		18FE00022E00000000000000 /* WindowPlacementCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18FE00012E00000000000000 /* WindowPlacementCoordinator.swift */; };
+		18FE00052E00000000000000 /* WindowPlacementCore in Frameworks */ = {isa = PBXBuildFile; productRef = 18FE00042E00000000000000 /* WindowPlacementCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -121,6 +123,7 @@
 		18FD00012E00000000000000 /* RecordingDomainBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingDomainBridge.swift; sourceTree = "<group>"; };
 		18FD00062E00000000000000 /* RecordingPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingPreferencesStore.swift; sourceTree = "<group>"; };
 		18FD00082E00000000000000 /* RecordingSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionCoordinator.swift; sourceTree = "<group>"; };
+		18FE00012E00000000000000 /* WindowPlacementCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPlacementCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +138,7 @@
 				18FB00052E00000000000000 /* RNNoiseProcessor in Frameworks */,
 				18FC00032E00000000000000 /* ArchiveJobCore in Frameworks */,
 				18FD00052E00000000000000 /* RecordingDomain in Frameworks */,
+				18FE00052E00000000000000 /* WindowPlacementCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -167,6 +171,7 @@
 				18A551F12D0749C3008FC5F6 /* SleepPreventer.swift */,
 				18A551F32D0749C3008FC5F6 /* WindowAccessor.swift */,
 				18A551F42D0749C3008FC5F6 /* WindowHighlighter.swift */,
+				18FE00012E00000000000000 /* WindowPlacementCoordinator.swift */,
 			);
 			path = Supports;
 			sourceTree = "<group>";
@@ -285,6 +290,7 @@
 				18FB00042E00000000000000 /* RNNoiseProcessor */,
 				18FC00022E00000000000000 /* ArchiveJobCore */,
 				18FD00042E00000000000000 /* RecordingDomain */,
+				18FE00042E00000000000000 /* WindowPlacementCore */,
 			);
 			productName = QuickRecorder;
 			productReference = 18D3BDE72BCE5DC1006CFFC0 /* QuickRecorder.app */;
@@ -325,6 +331,7 @@
 				18FB00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RNNoiseProcessor" */,
 				18FC00012E00000000000000 /* XCLocalSwiftPackageReference "Packages/ArchiveJobCore" */,
 				18FD00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RecordingDomain" */,
+				18FE00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/WindowPlacementCore" */,
 			);
 			productRefGroup = 18D3BDE82BCE5DC1006CFFC0 /* Products */;
 			projectDirPath = "";
@@ -397,6 +404,7 @@
 				18FD00022E00000000000000 /* RecordingDomainBridge.swift in Sources */,
 				18FD00072E00000000000000 /* RecordingPreferencesStore.swift in Sources */,
 				18FD00092E00000000000000 /* RecordingSessionCoordinator.swift in Sources */,
+				18FE00022E00000000000000 /* WindowPlacementCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -700,6 +708,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/RecordingDomain;
 		};
+		18FE00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/WindowPlacementCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/WindowPlacementCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -737,6 +749,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 18FD00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/RecordingDomain" */;
 			productName = RecordingDomain;
+		};
+		18FE00042E00000000000000 /* WindowPlacementCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18FE00032E00000000000000 /* XCLocalSwiftPackageReference "Packages/WindowPlacementCore" */;
+			productName = WindowPlacementCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

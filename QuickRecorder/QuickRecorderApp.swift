@@ -64,14 +64,19 @@ struct QuickRecorderApp: App {
                     WindowAccessor(
                         onWindowOpen: { w in
                             if let w = w {
+                                WindowPlacementCoordinator.shared.register(w, role: .settings)
                                 //w.level = .floating
                                 w.titlebarSeparatorStyle = .none
-                                guard let nsSplitView = findNSSplitVIew(view: w.contentView),
-                                      let controller = nsSplitView.delegate as? NSSplitViewController else { return }
-                                controller.splitViewItems.first?.canCollapse = false
-                                controller.splitViewItems.first?.minimumThickness = 140
-                                controller.splitViewItems.first?.maximumThickness = 140
-                                w.orderFront(nil)
+                                if let nsSplitView = findNSSplitVIew(view: w.contentView),
+                                   let controller = nsSplitView.delegate as? NSSplitViewController {
+                                    controller.splitViewItems.first?.canCollapse = false
+                                    controller.splitViewItems.first?.minimumThickness = 140
+                                    controller.splitViewItems.first?.maximumThickness = 140
+                                }
+                                DispatchQueue.main.async {
+                                    WindowPlacementCoordinator.shared.recover(w)
+                                    w.makeKeyAndOrderFront(nil)
+                                }
                             }
                         })
                 )
@@ -241,6 +246,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
     }
     
     func applicationWillFinishLaunching(_ notification: Notification) {
+        WindowPlacementCoordinator.shared.start()
         scPerm = SCContext.updateAvailableContentSync() != nil
         
         let process = NSWorkspace.shared.runningApplications.filter({
@@ -436,12 +442,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
                 mainPanel.isReleasedWhenClosed = false
                 mainPanel.isMovableByWindowBackground = true
                 mainPanel.collectionBehavior = [.canJoinAllSpaces]
-                mainPanel.center()
-                if let screen = mainPanel.screen {
-                    let wX = (screen.frame.width - mainPanel.frame.width) / 2 + screen.frame.minX
-                    let wY = (screen.frame.height - mainPanel.frame.height) / 2 + screen.frame.minY
-                    mainPanel.setFrameOrigin(NSPoint(x: wX, y: wY))
-                }
+                WindowPlacementCoordinator.shared.placeNew(
+                    mainPanel,
+                    role: .mainPanel,
+                    preferredScreen: SCContext.getScreenWithMouse() ?? NSScreen.main
+                )
                 mainPanel.makeKeyAndOrderFront(self)
                 if #unavailable(macOS 13) { NSApp.activate(ignoringOtherApps: true) }
                 PopoverState.shared.isShowing = false

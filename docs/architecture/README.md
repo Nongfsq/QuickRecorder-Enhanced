@@ -9,6 +9,7 @@ policy and state into local Swift packages.
 - [Current system assessment](current-system.md)
 - [Technology stack assessment](technology-stack.md)
 - [Target architecture blueprint](target-architecture.md)
+- [Multi-display window recovery blueprint](2026-07-27-multi-display-window-recovery-blueprint.md)
 - [Refactor plan and tasks](refactor-plan.md)
 - [Architecture decisions](../decisions/README.md)
 
@@ -25,6 +26,8 @@ policy and state into local Swift packages.
    explicit policy boundaries.
 8. Platform-independent policy is package-tested; application behavior has a
    separately authorized signed Release gate.
+9. Ordinary windows are recovered only when unreachable; capture-bound and
+   transient windows retain explicit screen semantics.
 
 These rules reduce repeated architectural decisions, but they do not make the
 architecture permanent. Each ADR defines evidence that would justify revisiting
