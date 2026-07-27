@@ -16,9 +16,9 @@
   ownership.
 - Fixed the main-panel Preferences command so it opens the settings window
   semantically instead of targeting a fragile menu index.
-- Published this checkpoint as a source-only prerelease. A public DMG remains
-  gated on Developer ID signing, notarization, reproducible Universal runtime
-  packaging, third-party notices, and a fork-owned update feed.
+- Published an experimental, self-signed and unnotarized Universal DMG. The
+  optional FFmpeg runtime is omitted until its Universal packaging and notices
+  are release-ready.
 
 ## 1.7.0-alpha.1
 

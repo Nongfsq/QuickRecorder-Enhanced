@@ -2,10 +2,11 @@
 
 ## Released baseline
 
-The latest published source checkpoint is `v1.7.0-alpha.2`. It establishes
-durable archive recovery, typed recording-domain boundaries, role-aware
-multi-display window recovery, and reliable Preferences routing on top of the
-fork-owned native recording and RNNoise baseline.
+The latest published checkpoint is `v1.7.0-alpha.2`. It establishes durable
+archive recovery, typed recording-domain boundaries, role-aware multi-display
+window recovery, and reliable Preferences routing on top of the fork-owned
+native recording and RNNoise baseline. Its experimental Universal DMG is
+self-signed, unnotarized, and omits the optional FFmpeg runtime.
 
 ## Active engineering work
 
