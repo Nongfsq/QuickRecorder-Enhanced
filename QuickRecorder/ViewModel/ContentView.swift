@@ -53,7 +53,7 @@ struct ContentView: View {
                                 if let display = SCContext.getSCDisplayWithMouse() {
                                     closeMainWindow()
                                     appDelegate.createCountdownPanel(screen: display) {
-                                        AppDelegate.shared.prepRecord(type: "audio", screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
+                                        AppDelegate.shared.prepRecord(mode: .systemaudio, screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
                                     }
                                 }
                             }, label: {
@@ -388,7 +388,7 @@ extension AppDelegate {
             let panelSize = NSSize(width: 1090, height: 110)
             let wX = (screen.frame.width - panelSize.width) / 2 + screen.frame.minX
             let wY = screen.visibleFrame.minY + 80
-            let contentView = NSHostingView(rootView: AreaSelector(screen: scDisplay))
+            let contentView = NSHostingView(rootView: AppLocalizedRoot(AreaSelector(screen: scDisplay)))
             contentView.frame = NSRect(x: wX, y: wY, width: panelSize.width, height: panelSize.height)
             contentView.focusRingType = .none
             let areaPanel = AreaControlPanel(contentRect: contentView.frame, styleMask: [.fullSizeContentView, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -416,7 +416,7 @@ extension AppDelegate {
             let wX = (screen.frame.width - 120) / 2 + screen.frame.minX
             let wY = (screen.frame.height - 120) / 2 + screen.frame.minY
             let frame =  NSRect(x: wX, y: wY, width: 120, height: 120)
-            let contentView = NSHostingView(rootView: CountdownView(countdownValue: countdown, atEnd: action))
+            let contentView = NSHostingView(rootView: AppLocalizedRoot(CountdownView(countdownValue: countdown, atEnd: action)))
             contentView.frame = frame
             countdownPanel.contentView = contentView
             countdownPanel.setFrame(frame, display: true)
@@ -428,7 +428,7 @@ extension AppDelegate {
         if only { closeAllWindow() }
         var seed = 0.0
         if random { seed = CGFloat(Int(arc4random_uniform(401)) - 200) }
-        let contentView = NSHostingView(rootView: view)
+        let contentView = NSHostingView(rootView: AppLocalizedRoot(view))
         contentView.frame = NSRect(x: 0, y: 0, width: 780, height: 555)
         let window = NSWindow(contentRect: contentView.frame, styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = title

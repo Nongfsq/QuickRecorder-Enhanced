@@ -1,0 +1,25 @@
+{
+  "sourceLanguage": "en",
+  "locales": [
+    {
+      "identifier": "en",
+      "complete": true,
+      "reviewStatus": "shipping"
+    },
+    {
+      "identifier": "zh-Hans",
+      "complete": true,
+      "reviewStatus": "shipping"
+    },
+    {
+      "identifier": "zh-Hant",
+      "complete": true,
+      "reviewStatus": "shipping"
+    },
+    {
+      "identifier": "it",
+      "complete": true,
+      "reviewStatus": "pending-native-review"
+    }
+  ]
+}

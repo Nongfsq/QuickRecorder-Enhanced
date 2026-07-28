@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import SwiftUI
+import RecordingDomain
 
 struct qmaPlayerView: View {
     @Binding var document: qmaPackageHandle
@@ -149,7 +150,7 @@ struct qmaPlayerView: View {
             }.padding().padding(.top, -14)
         }
         .onAppear {
-            audioPlayerManager.loadAudioFiles(format: document.info.format, package: fileURL, encoder: document.info.encoder, saveMP3: document.info.exportMP3)
+            try? audioPlayerManager.loadAudioFiles(format: document.info.format, package: fileURL, encoder: document.info.encoder, saveMP3: document.info.exportMP3)
                 audioPlayerManager.sysVol = document.info.sysVol
                 audioPlayerManager.micVol = document.info.micVol
         }
@@ -444,22 +445,18 @@ class AudioPlayerManager: ObservableObject {
         }
     }
     
-    func loadAudioFiles(format: String, package: URL, encoder: String, saveMP3: Bool) {
-        do {
-            fileFormat = format
-            fileEncoder = encoder
-            exportMP3 = saveMP3
-            packageURL = package
-            audioFile1 = try AVAudioFile(forReading: package.appendingPathComponent("sys.\(format)"))
-            audioFile2 = try AVAudioFile(forReading: package.appendingPathComponent("mic.\(format)"))
-            
-            audioLength = Double(audioFile1?.length ?? 0) / (audioFile1?.processingFormat.sampleRate ?? 48000.0)
-            
-            updateSysVol()
-            updateMicVol()
-        } catch {
-            print("Error loading audio data: \(error)")
-        }
+    func loadAudioFiles(format: String, package: URL, encoder: String, saveMP3: Bool) throws {
+        fileFormat = format
+        fileEncoder = encoder
+        exportMP3 = saveMP3
+        packageURL = package
+        audioFile1 = try AVAudioFile(forReading: package.appendingPathComponent("sys.\(format)"))
+        audioFile2 = try AVAudioFile(forReading: package.appendingPathComponent("mic.\(format)"))
+
+        audioLength = Double(audioFile1?.length ?? 0) / (audioFile1?.processingFormat.sampleRate ?? 48000.0)
+
+        updateSysVol()
+        updateMicVol()
     }
     
     func play() {
@@ -560,55 +557,104 @@ class AudioPlayerManager: ObservableObject {
     }
     
     func saveFile(_ url: URL, saveAsMP3: Bool = false) {
-        var url = url
-        if url.pathExtension == "mp3" { url = url.deletingPathExtension() }
-        if url.pathExtension != self.fileFormat { url = url.appendingPathExtension(self.fileFormat) }
-        let lastComp = url.lastPathComponent
-        if self.exportMP3 { url = url.deletingLastPathComponent().appendingPathComponent("." + url.lastPathComponent) }
-        
-        Thread.detachNewThread {
-            DispatchQueue.main.async { self.exporting = true }
+        Task {
             do {
-                try self.renderMixedAudio(to: url)
-                
+                let outputURL = try await exportFile(url, saveAsMP3: saveAsMP3)
                 let title = "Recording Completed".local
-                var body = String(format: "File saved to: %@".local, url.path.removingPercentEncoding!)
+                let body = String(format: "File saved to: %@".local, outputURL.path.removingPercentEncoding ?? outputURL.path)
                 let id = "quickrecorder.completed.\(UUID().uuidString)"
-                
-                if saveAsMP3 {
-                    let oldURL = url
-                    let newURl = url.deletingLastPathComponent().appendingPathComponent(lastComp).deletingPathExtension().appendingPathExtension("mp3")
-                    body = String(format: "File saved to: %@".local, newURl.path.removingPercentEncoding!)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        Task {
-                            do {
-                                try await SCContext.m4a2mp3(inputUrl: oldURL, outputUrl: newURl)
-                                try? fd.removeItem(at: oldURL)
-                            } catch {
-                                SCContext.showNotification(title: "Failed to save file".local, body: "\(error.localizedDescription)", id: "quickrecorder.error.\(UUID().uuidString)")
-                                return
-                            }
-                        }
-                    }
-                }
-                
                 SCContext.showNotification(title: title, body: body, id: id)
             } catch {
                 SCContext.showNotification(title: "Failed to save file".local, body: "\(error.localizedDescription)", id: "quickrecorder.error.\(UUID().uuidString)")
             }
-            DispatchQueue.main.async { self.exporting = false }
         }
     }
 
-    private func renderMixedAudio(to url: URL) throws {
-        guard let audioFile1, let audioFile2 else {
+    func exportFile(_ requestedURL: URL, saveAsMP3: Bool = false) async throws -> URL {
+        guard let systemAudioURL = audioFile1?.url, let microphoneAudioURL = audioFile2?.url else {
             throw NSError(domain: "QMAExportError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Audio tracks are unavailable."])
         }
+        let encoder = fileEncoder
+        let systemVolume = sysVol
+        let microphoneVolume = micVol
+        var renderURL = requestedURL
+        if renderURL.pathExtension == "mp3" { renderURL = renderURL.deletingPathExtension() }
+        if renderURL.pathExtension != fileFormat { renderURL = renderURL.appendingPathExtension(fileFormat) }
+        let visibleRenderURL = renderURL
+        if saveAsMP3 {
+            renderURL = renderURL.deletingLastPathComponent().appendingPathComponent("." + renderURL.lastPathComponent)
+        }
+
+        await MainActor.run { exporting = true }
+        do {
+            let _: Void = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                Thread.detachNewThread {
+                    do {
+                        try Self.renderMixedAudio(
+                            systemAudioURL: systemAudioURL,
+                            microphoneAudioURL: microphoneAudioURL,
+                            systemVolume: systemVolume,
+                            microphoneVolume: microphoneVolume,
+                            encoder: encoder,
+                            to: renderURL
+                        )
+                        continuation.resume(returning: ())
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
+
+            let outputURL: URL
+            if saveAsMP3 {
+                outputURL = visibleRenderURL.deletingPathExtension().appendingPathExtension("mp3")
+                try await SCContext.m4a2mp3(inputUrl: renderURL, outputUrl: outputURL)
+                try fd.removeItem(at: renderURL)
+            } else {
+                outputURL = renderURL
+            }
+            await MainActor.run { exporting = false }
+            return outputURL
+        } catch {
+            await MainActor.run { exporting = false }
+            throw error
+        }
+    }
+
+    private static func renderMixedAudio(
+        systemAudioURL: URL,
+        microphoneAudioURL: URL,
+        systemVolume: Float,
+        microphoneVolume: Float,
+        encoder: String,
+        to url: URL
+    ) throws {
+        let audioFile1 = try AVAudioFile(forReading: systemAudioURL)
+        let audioFile2 = try AVAudioFile(forReading: microphoneAudioURL)
+        let engine = AVAudioEngine()
+        let playerNode1 = AVAudioPlayerNode()
+        let playerNode2 = AVAudioPlayerNode()
+        let mixerNode = AVAudioMixerNode()
+
+        engine.attach(playerNode1)
+        engine.attach(playerNode2)
+        engine.attach(mixerNode)
+        let playbackFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 2,
+            interleaved: false
+        )!
+        engine.connect(playerNode1, to: mixerNode, format: playbackFormat)
+        engine.connect(playerNode2, to: mixerNode, format: playbackFormat)
+        engine.connect(mixerNode, to: engine.mainMixerNode, format: playbackFormat)
+        playerNode1.volume = systemVolume
+        playerNode2.volume = microphoneVolume
 
         playerNode1.scheduleFile(audioFile1, at: nil, completionHandler: nil)
         playerNode2.scheduleFile(audioFile2, at: nil, completionHandler: nil)
 
-        let audioSettings = SCContext.updateAudioSettings(format: fileEncoder)
+        let audioSettings = SCContext.updateAudioSettings(format: encoder)
         let outputFile = try AVAudioFile(
             forWriting: url,
             settings: audioSettings,
@@ -621,7 +667,6 @@ class AudioPlayerManager: ObservableObject {
         defer {
             if manualRenderingEnabled { engine.disableManualRenderingMode() }
             engine.stop()
-            setupAudioEngine()
         }
 
         // The QMA player graph is stereo for normal playback, while lecture
@@ -638,15 +683,30 @@ class AudioPlayerManager: ObservableObject {
         playerNode1.play()
         playerNode2.play()
 
-        let duration = max(audioFile1.length, audioFile2.length)
+        guard let targetFrameCountValue = AudioRenderDurationPolicy.targetFrameCount(
+            tracks: [
+                AudioRenderTrackDuration(
+                    frameCount: audioFile1.length,
+                    sampleRate: audioFile1.processingFormat.sampleRate
+                ),
+                AudioRenderTrackDuration(
+                    frameCount: audioFile2.length,
+                    sampleRate: audioFile2.processingFormat.sampleRate
+                )
+            ],
+            outputSampleRate: engine.manualRenderingFormat.sampleRate
+        ) else {
+            throw NSError(domain: "QMAExportError", code: 5, userInfo: [NSLocalizedDescriptionKey: "Audio track timing is invalid."])
+        }
+        let targetFrameCount = AVAudioFramePosition(targetFrameCountValue)
         let buffer = AVAudioPCMBuffer(
             pcmFormat: engine.manualRenderingFormat,
             frameCapacity: engine.manualRenderingMaximumFrameCount
         )!
         var stalledRenderAttempts = 0
 
-        while engine.manualRenderingSampleTime < duration {
-            let remainingFrames = duration - engine.manualRenderingSampleTime
+        while engine.manualRenderingSampleTime < targetFrameCount {
+            let remainingFrames = targetFrameCount - engine.manualRenderingSampleTime
             let framesToRender = min(buffer.frameCapacity, AVAudioFrameCount(remainingFrames))
             let status = try engine.renderOffline(framesToRender, to: buffer)
 

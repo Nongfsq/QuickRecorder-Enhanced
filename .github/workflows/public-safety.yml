@@ -16,6 +16,12 @@ jobs:
           fetch-depth: 0
       - name: Check public tree
         run: sh Scripts/check-public-tree.sh
+      - name: Lint application metadata
+        run: |
+          plutil -lint QuickRecorder/Info.plist
+          plutil -lint QuickRecorder/QuickRecorder.entitlements
+      - name: Validate shipping localizations
+        run: python3 Scripts/check-localizations.py --self-test
       - name: Test RNNoise package
         run: swift test --package-path Packages/RNNoiseProcessor
       - name: Test archive job domain

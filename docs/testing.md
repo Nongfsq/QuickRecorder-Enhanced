@@ -13,12 +13,16 @@ sh Scripts/check-public-tree.sh
 swift test --package-path Packages/RNNoiseProcessor
 swift test --package-path Packages/ArchiveJobCore
 swift test --package-path Packages/RecordingDomain
+swift test --package-path Packages/WindowPlacementCore
 plutil -lint QuickRecorder/Info.plist
 plutil -lint QuickRecorder/QuickRecorder.entitlements
+python3 Scripts/check-localizations.py --self-test
 ```
 
 When a package is not yet present on a historical branch, omit only that
-package's command.
+package's command. Before a public commit, inspect the staged diff as well as
+the working tree; the public-tree script scans both content views so partially
+staged local paths or credentials cannot bypass the gate.
 
 ## Media contract gate
 
@@ -45,6 +49,12 @@ behavior, recovery, and upgrade behavior.
 
 Do not use a Debug application build as a substitute for this gate. Do not
 reset TCC to automate it.
+
+For localization changes, also compile `QuickRecorder/Localizable.xcstrings`
+with `xcstringstool` and confirm that the Release bundle contains `en`,
+`zh-Hans`, `zh-Hant`, and `it` localizations. Switching every language,
+checking long settings labels, and confirming persistence after restart remain
+human-run application smoke tests.
 
 ## Public release gate
 

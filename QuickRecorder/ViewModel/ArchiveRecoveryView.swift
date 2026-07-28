@@ -116,21 +116,28 @@ struct ArchiveRecoveryView: View {
                     .foregroundColor(.secondary)
             }
             HStack {
-                switch service.recoveryDisposition(for: job) {
-                case .validateTemporaryOutput:
-                    Button("Validate Temporary Archive".local) {
-                        service.recoverTemporaryOutput(jobID: job.id)
+                if service.isRecoveryValidationInProgress(jobID: job.id) {
+                    Button("Cancel Validation".local, role: .destructive) {
+                        service.cancel(jobID: job.id)
                     }
-                case .validateFinalOutput:
-                    Button("Validate Recovered Archive".local) {
-                        service.recoverFinalOutput(jobID: job.id)
+                    .disabled(job.status == .cancelling)
+                } else {
+                    switch service.recoveryDisposition(for: job) {
+                    case .validateTemporaryOutput:
+                        Button("Validate Temporary Archive".local) {
+                            service.recoverTemporaryOutput(jobID: job.id)
+                        }
+                    case .validateFinalOutput:
+                        Button("Validate Recovered Archive".local) {
+                            service.recoverFinalOutput(jobID: job.id)
+                        }
+                    case .restartEncoding, .completedOutputMissing:
+                        Button("Restart Compression".local) {
+                            service.restart(jobID: job.id)
+                        }
+                    case .sourceMissing, .outputConflict, .alreadyCompleted, .noAction:
+                        EmptyView()
                     }
-                case .restartEncoding, .completedOutputMissing:
-                    Button("Restart Compression".local) {
-                        service.restart(jobID: job.id)
-                    }
-                case .sourceMissing, .outputConflict, .alreadyCompleted, .noAction:
-                    EmptyView()
                 }
                 Button(role: .destructive) {
                     withAnimation {

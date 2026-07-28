@@ -118,6 +118,72 @@ final class ArchiveJobCoreTests: XCTestCase {
         )
     }
 
+    func testRuntimeMissingJobWithSourceCanRestart() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .runtimeMissing,
+                sourceExists: true,
+                outputExists: false,
+                temporaryOutputExists: false
+            ),
+            .restartEncoding
+        )
+    }
+
+    func testFailedJobWithSourceCanRestart() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .failed,
+                sourceExists: true,
+                outputExists: false,
+                temporaryOutputExists: false
+            ),
+            .restartEncoding
+        )
+    }
+
+    func testLiveVerificationIsNotClassifiedAsRecoveryWork() {
+        XCTAssertEqual(
+            ArchiveRecoveryClassifier.classify(
+                status: .verifying,
+                sourceExists: true,
+                outputExists: false,
+                temporaryOutputExists: true
+            ),
+            .noAction
+        )
+    }
+
+    func testRecoveryTransitionRejectsRepeatedValidation() {
+        XCTAssertEqual(
+            ArchiveRecoveryTransition.decide(
+                status: .verifying,
+                disposition: .validateTemporaryOutput,
+                request: .validateTemporaryOutput
+            ),
+            .rejectAlreadyRunning
+        )
+    }
+
+    func testRecoveryTransitionRequiresMatchingDisposition() {
+        XCTAssertEqual(
+            ArchiveRecoveryTransition.decide(
+                status: .interrupted,
+                disposition: .validateFinalOutput,
+                request: .validateTemporaryOutput
+            ),
+            .rejectIncompatibleDisposition
+        )
+        XCTAssertEqual(
+            ArchiveRecoveryTransition.decide(
+                status: .interrupted,
+                disposition: .validateFinalOutput,
+                request: .validateFinalOutput
+            ),
+            .start
+        )
+    }
+
     func testCompletedJobWithDeletedSourceCannotRestart() {
         XCTAssertEqual(
             ArchiveRecoveryClassifier.classify(

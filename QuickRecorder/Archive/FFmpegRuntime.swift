@@ -53,26 +53,39 @@ struct FFmpegRuntime {
     let description: String
     let manifestURL: URL?
 
-    static func resolve() throws -> FFmpegRuntime {
+    static func resolve(cancellationRequested: @escaping () -> Bool = { false }) throws -> FFmpegRuntime {
+        if cancellationRequested() { throw ArchiveSubprocessError.cancelled }
         let candidates = runtimeCandidates()
         for candidate in candidates where fd.isExecutableFile(atPath: candidate.ffmpeg.path) && fd.isExecutableFile(atPath: candidate.ffprobe.path) {
             let runtime = FFmpegRuntime(ffmpegURL: candidate.ffmpeg, ffprobeURL: candidate.ffprobe, description: candidate.description, manifestURL: candidate.manifest)
-            try runtime.validateCapabilities()
+            try runtime.validateCapabilities(cancellationRequested: cancellationRequested)
             return runtime
         }
         throw FFmpegRuntimeError.missingRuntime
     }
 
-    func validateCapabilities() throws {
-        let ffmpegVersion = try FFmpegRuntime.run(ffmpegURL, arguments: ["-hide_banner", "-version"])
+    func validateCapabilities(cancellationRequested: @escaping () -> Bool = { false }) throws {
+        let ffmpegVersion = try FFmpegRuntime.run(
+            ffmpegURL,
+            arguments: ["-hide_banner", "-version"],
+            cancellationRequested: cancellationRequested
+        )
         guard ffmpegVersion.exitCode == 0 else {
             throw FFmpegRuntimeError.missingCapability("Unable to inspect FFmpeg version.")
         }
-        let ffprobeVersion = try FFmpegRuntime.run(ffprobeURL, arguments: ["-hide_banner", "-version"])
+        let ffprobeVersion = try FFmpegRuntime.run(
+            ffprobeURL,
+            arguments: ["-hide_banner", "-version"],
+            cancellationRequested: cancellationRequested
+        )
         guard ffprobeVersion.exitCode == 0 else {
             throw FFmpegRuntimeError.missingCapability("Unable to inspect FFprobe version.")
         }
-        let result = try FFmpegRuntime.run(ffmpegURL, arguments: ["-hide_banner", "-encoders"])
+        let result = try FFmpegRuntime.run(
+            ffmpegURL,
+            arguments: ["-hide_banner", "-encoders"],
+            cancellationRequested: cancellationRequested
+        )
         guard result.exitCode == 0 else {
             throw FFmpegRuntimeError.missingCapability("Unable to inspect FFmpeg encoders.")
         }
@@ -83,7 +96,11 @@ struct FFmpegRuntime {
         guard encoders.contains(" aac ") || encoders.contains("aac_at") else {
             throw FFmpegRuntimeError.missingCapability("FFmpeg runtime does not include an AAC encoder.")
         }
-        let svtHelp = try FFmpegRuntime.run(ffmpegURL, arguments: ["-hide_banner", "-h", "encoder=libsvtav1"])
+        let svtHelp = try FFmpegRuntime.run(
+            ffmpegURL,
+            arguments: ["-hide_banner", "-h", "encoder=libsvtav1"],
+            cancellationRequested: cancellationRequested
+        )
         let svtHelpText = svtHelp.stdout + "\n" + svtHelp.stderr
         guard svtHelp.exitCode == 0 && svtHelpText.contains("-crf") else {
             throw FFmpegRuntimeError.missingCapability("FFmpeg libsvtav1 encoder does not expose CRF mode.")
@@ -96,6 +113,7 @@ struct FFmpegRuntime {
         timeout: TimeInterval = 300,
         cancellationRequested: () -> Bool = { false }
     ) throws -> ProcessRunResult {
+        if cancellationRequested() { throw ArchiveSubprocessError.cancelled }
         let process = Process()
         process.launchPath = executableURL.path
         process.arguments = arguments

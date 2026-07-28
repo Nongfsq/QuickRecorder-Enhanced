@@ -164,7 +164,7 @@ struct AppSelector: View {
         closeAllWindow()
         appDelegate.createCountdownPanel(screen: display) {
             SCContext.autoStop = autoStop
-            appDelegate.prepRecord(type: "application", screens: display, windows: nil, applications: selected)
+            appDelegate.prepRecord(mode: .application, screens: display, windows: nil, applications: selected)
         }
     }
 }

@@ -82,7 +82,7 @@ struct ContentViewNew: View {
                             if let display = SCContext.getSCDisplayWithMouse() {
                                 closeMainWindow()
                                 appDelegate.createCountdownPanel(screen: display) {
-                                    AppDelegate.shared.prepRecord(type: "audio", screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
+                                    AppDelegate.shared.prepRecord(mode: .systemaudio, screens: SCContext.getSCDisplayWithMouse(), windows: nil, applications: nil)
                                 }
                             }
                         }, label: {

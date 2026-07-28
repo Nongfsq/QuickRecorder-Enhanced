@@ -8,6 +8,7 @@ import AppKit
 import Foundation
 import AVFoundation
 import UserNotifications
+import RecordingDomain
 
 extension AppDelegate {
     func recordingCamera(with device: AVCaptureDevice) {
@@ -78,6 +79,16 @@ class AVOutputClass: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVi
             SCContext.requestCameraPermission()
             return
         }
+
+        let recordingRequest: RecordingRequest?
+        if didOutput {
+            recordingRequest = RecordingPreferencesStore().makeRequest(mode: .idevice)
+            guard let recordingRequest, AppDelegate.shared.recordingSession.prepare(recordingRequest) else {
+                return
+            }
+        } else {
+            recordingRequest = nil
+        }
         
         SCContext.captureSession.addInput(input)
         SCContext.captureSession.addOutput(output)
@@ -97,16 +108,24 @@ class AVOutputClass: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVi
         }
         
         if didOutput {
-            let encoderIsH265 = ud.string(forKey: "encoder") == Encoder.h265.rawValue
+            guard let recordingRequest else {
+                AppDelegate.shared.recordingSession.fail("iDevice recording request is unavailable.")
+                return
+            }
+            let encoderIsH265 = recordingRequest.settings.encoder == .h265
             let videoSettings: [String: Any] = [ AVVideoCodecKey: encoderIsH265 ? AVVideoCodecType.hevc : AVVideoCodecType.h264 ]
-            guard let connection = output.connection(with: .video) else { return }
+            guard let connection = output.connection(with: .video) else {
+                AppDelegate.shared.recordingSession.fail("iDevice video connection is unavailable.")
+                return
+            }
             output.setOutputSettings(videoSettings, for: connection)
-            let fileEnding = ud.string(forKey: "videoFormat") ?? ""
+            let fileEnding = recordingRequest.settings.videoFormat.rawValue
             SCContext.filePath = "\(SCContext.getFilePath()).\(fileEnding)"
             SCContext.captureSession.startRunning()
             output.startRecording(to: SCContext.filePath.url, recordingDelegate: self)
             SCContext.streamType = StreamType.idevice
             SCContext.startTime = Date.now
+            AppDelegate.shared.recordingSession.markStarted()
         }
         
         SCContext.previewSession.startRunning()
@@ -117,18 +136,29 @@ class AVOutputClass: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVi
         }
     }
 
-    public func stopRecording() {
-        if SCContext.captureSession.isRunning {
+    public func stopRecording(completion: (() -> Void)? = nil) {
+        guard AppDelegate.shared.recordingSession.beginStopping(completion: completion) else { return }
+        if SCContext.captureSession.isRunning, output.isRecording {
             output.stopRecording()
+            AppDelegate.shared.recordingSession.beginFinalizing()
             SCContext.captureSession.stopRunning()
             SCContext.previewSession.stopRunning()
-            SCContext.streamType = nil
-            SCContext.startTime = nil
             DispatchQueue.main.async {
                 controlPanel.close()
                 deviceWindow.close()
                 updateStatusBar()
             }
+        } else {
+            AppDelegate.shared.recordingSession.beginFinalizing()
+            SCContext.completeFinalization(
+                .failure(
+                    RecordingFailure(
+                        stage: .deviceCapture,
+                        message: "iDevice recording output is not active.",
+                        retainedURL: SCContext.filePath?.url
+                    )
+                )
+            )
         }
     }
     
@@ -141,14 +171,33 @@ class AVOutputClass: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVi
     }
 
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-        let content = UNMutableNotificationContent()
-        content.title = "Recording Completed".local
-        content.body = String(format: "File saved to: %@".local, outputFileURL.path)
-        content.sound = UNNotificationSound.default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let request = UNNotificationRequest(identifier: "quickrecorder.completed.\(UUID().uuidString)", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error { print("Notification failed to send：\(error.localizedDescription)") }
+        _ = AppDelegate.shared.recordingSession.beginStopping()
+        guard AppDelegate.shared.recordingSession.beginFinalizing() else { return }
+        let finishedSuccessfully: Bool
+        if let error = error as NSError? {
+            finishedSuccessfully = error.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool == true
+        } else {
+            finishedSuccessfully = true
+        }
+        let outcome: FinalizationOutcome
+        if finishedSuccessfully {
+            outcome = .success(
+                RecordingArtifact(kind: .video, production: .deviceCapture, url: outputFileURL)
+            )
+        } else {
+            outcome = .failure(
+                RecordingFailure(
+                    stage: .deviceCapture,
+                    message: error?.localizedDescription ?? "iDevice recording failed.",
+                    retainedURL: outputFileURL
+                )
+            )
+        }
+        DispatchQueue.main.async {
+            SCContext.streamType = nil
+            SCContext.startTime = nil
+            SCContext.completeFinalization(outcome)
+            updateStatusBar()
         }
     }
 }

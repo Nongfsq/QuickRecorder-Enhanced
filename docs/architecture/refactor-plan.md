@@ -58,25 +58,33 @@ decisions and defines evidence-based revisit triggers.
 
 - [x] **ARCH-101 — Characterize effective preferences.** Add fixtures for
   defaults, validation, and request snapshots. Acceptance: one typed schema is
-  authoritative and changes apply to the next session.
+  authoritative and changes apply to the next session. `UserDefaults` suite
+  fixtures cover normalized screen and iDevice snapshots.
 - [x] **ARCH-102 — Introduce typed recording requests.** Replace string modes
   and selector-to-global mutation with `RecordingRequest` adapters. Acceptance:
-  UI, hotkey, and AppleScript entry routes produce equivalent requests.
-- [ ] **ARCH-103 — Create a single session owner.** Wrap stream, writer, audio,
+  UI, hotkey, and AppleScript entry routes produce equivalent requests. Typed
+  production routes share one adapter; the Objective-C selector retains a tested
+  legacy-string compatibility facade.
+- [x] **ARCH-103 — Create a single session owner.** Wrap stream, writer, audio,
   pause timeline, and teardown behind one actor or serial executor. Acceptance:
   no sample callback mutates writer state outside the owner; stress tests show
-  ordered transitions. Progress: a lock-protected coordinator now owns the
-  immutable request and legal lifecycle transitions; stream/writer/sample
-  ownership still remains in `SCContext` and `AppDelegate`.
+  ordered transitions. The serial media owner now orders writer inputs, all
+  sample sources, per-track pause timelines, flushing, and asynchronous teardown.
 - [x] **ARCH-104 — Extract pure media policies.** Move dimension, bitrate,
   adaptive-VFR, and pause timeline policy into RecordingDomain. Acceptance:
-  deterministic boundary tests cover invalid values and timing edges.
-- [ ] **ARCH-105 — Extract finalization.** Return typed artifacts from writer,
+  deterministic boundary tests cover invalid values and timing edges. Dimension,
+  bitrate, adaptive-VFR, per-track pause, and cross-sample-rate render-duration
+  policies are integrated and package-tested.
+- [x] **ARCH-105 — Extract finalization.** Return typed artifacts from writer,
   remix, QMA, and device paths. Acceptance: outcome matrix has parity for file,
   preview eligibility, notification, trim, and archive dispatch.
-- [ ] **ARCH-106 — Remove recording globals.** Migrate `SCContext` field groups
+- [x] **ARCH-106 — Remove recording globals.** Migrate `SCContext` field groups
   into session/catalog/finalizer owners. Acceptance: remaining static members
   are immutable constants or a temporary facade with a removal task.
+- [ ] **ARCH-107 — Remove compatibility facades.** Migrate the remaining
+  `SCContext` forwarding call sites to session/catalog/finalizer owners, then
+  delete the facades. Acceptance: no mutable recording state is exposed through
+  `SCContext`; this is cleanup after the ownership transfer, not a new behavior.
 
 ### P2 — routing, archive, and infrastructure
 
@@ -106,9 +114,10 @@ decisions and defines evidence-based revisit triggers.
   observe cancellation, helper subprocesses have timeouts, and FFmpeg escalates
   from terminate to `SIGKILL`; process-group ownership and the ignoring-child
   integration fixture remain open.
-- [ ] **ARCH-206 — Decide independent worker.** Product decision: archives
+- [x] **ARCH-206 — Decide independent worker.** Product decision: archives
   continue after UI exit, or orderly wait/cancel only. Acceptance: ADR status is
-  accepted and implementation uses a lease if continuation is chosen.
+  accepted. ADR-0003 selects orderly wait or bounded cancellation; continuation
+  after exit remains out of scope, so no independent-worker lease is required.
 - [ ] **ARCH-207 — Centralize file capabilities.** Validate destinations,
   symlinks, permissions, atomic replacement, Trash deletion, and retention.
   Acceptance: tampered manifests cannot direct writes outside granted policy.
@@ -150,23 +159,22 @@ Completed execution slices:
 
 - ARCH-003 through ARCH-005: delegate identity, RecordingDomain foundation,
   and local-package CI.
-- ARCH-101, ARCH-102, and ARCH-104: normalized immutable preference snapshots,
-  typed requests shared by legacy entry routes, and package-tested bitrate,
-  adaptive-VFR, and pause-timeline policies.
-- ARCH-103 partial: active request and lifecycle-state ownership moved into a
-  lock-protected coordinator used by prepare, start, pause, resume, stop,
-  finalization, completion, and failure paths.
-
-ARCH-103 is the next ownership migration. It changes the queue that owns active
-ScreenCaptureKit samples and AVAssetWriter teardown, so source parsing is not
-sufficient acceptance evidence. Implement it together with the synthetic-media
-and signed Release gates rather than silently treating it as complete.
+- ARCH-101 through ARCH-106: immutable settings and typed routes feed one
+  lock-protected session coordinator; a serial media owner owns all writer,
+  sample, pause, and asynchronous finalization ordering; domain tests cover the
+  production policy matrix. `SCContext` now contains temporary forwarding
+  facades whose deletion is tracked by ARCH-107.
+- ARCH-204 through ARCH-206: recovery actions, bounded cancellation, publish
+  ordering, child lifetime, and the orderly wait/cancel product decision are
+  implemented. Full fixture and installed interaction coverage remains in the
+  P2/P3 quality tasks.
 
 ## Verification checklist
 
 - [x] `RecordingDomain` debug and release package tests pass.
 - [x] `ArchiveJobCore` debug and release package tests pass.
 - [x] `RNNoiseProcessor` debug and release package tests pass.
+- [x] `WindowPlacementCore` debug and release package tests pass.
 - [x] Swift source parse checks pass.
 - [x] plist and localization files pass `plutil`.
 - [x] Xcode project listing resolves the local package graph.
@@ -174,12 +182,14 @@ and signed Release gates rather than silently treating it as complete.
 - [x] signed Universal Release build and static bundle inspection pass.
 - [x] synthetic H.264/AAC to AV1/AAC archive smoke passes codec, dimensions,
   channel/rate, and monotonic video-packet checks.
-- [x] no automated app launch, ScreenCaptureKit permission probe, or TCC
-  mutation occurs.
+- [x] the authorized installed Release launches to the main panel and opens the
+  Preferences route without a crash; no ScreenCaptureKit permission retry or
+  TCC mutation occurs.
 
-The P1 domain slice additionally passes 11 RecordingDomain tests in both Debug
-and Release configurations plus isolated type-checking of the preferences
-adapter. Application integration remains unverified until ARCH-304.
+The P1 domain slice additionally passes 20 RecordingDomain tests in both Debug
+and Release configurations plus a signed Universal app build. Real recording,
+pause/resume, active-recording Quit, and permission interaction remain explicit
+human smoke items under ARCH-301/ARCH-304.
 
 ## Completion definition
 

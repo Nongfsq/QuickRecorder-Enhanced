@@ -3,6 +3,70 @@ import SwiftUI
 import ArchiveJobCore
 import Darwin
 
+private final class OwnedArchiveProcess {
+    let process: Process
+    private let parentLifetimeWriteHandle: FileHandle
+    private let lifetimeLock = NSLock()
+    private var didCloseParentLifetimeSignal = false
+
+    init(process: Process, parentLifetimeWriteHandle: FileHandle) {
+        self.process = process
+        self.parentLifetimeWriteHandle = parentLifetimeWriteHandle
+    }
+
+    func closeParentLifetimeSignal() {
+        lifetimeLock.lock()
+        defer { lifetimeLock.unlock() }
+        guard !didCloseParentLifetimeSignal else { return }
+        didCloseParentLifetimeSignal = true
+        try? parentLifetimeWriteHandle.close()
+    }
+}
+
+private final class FFmpegOutputCollector {
+    private let queue = DispatchQueue(label: "quickrecorder.archive.ffmpeg-output")
+    private let progressHandler: (Double?, String, String, String) -> Void
+    private var stdout = ""
+    private var stderr = ""
+    private var duration: TimeInterval?
+
+    init(progressHandler: @escaping (Double?, String, String, String) -> Void) {
+        self.progressHandler = progressHandler
+    }
+
+    func consumeStdout(_ data: Data) {
+        let chunk = String(decoding: data, as: UTF8.self)
+        queue.sync {
+            stdout += chunk
+            progressHandler(nil, "Compressing", chunk, "")
+        }
+    }
+
+    func consumeStderr(_ data: Data) {
+        let chunk = String(decoding: data, as: UTF8.self)
+        queue.sync {
+            stderr += chunk
+            if duration == nil {
+                duration = ArchiveProgressParser.duration(from: chunk)
+                    ?? ArchiveProgressParser.duration(from: stderr)
+            }
+            var progress: Double?
+            if let duration, duration > 0,
+               let encoded = ArchiveProgressParser.encodedTime(from: chunk) {
+                progress = min(max(encoded / duration, 0), 0.999)
+            }
+            let detail = progress.map { "Compressing \(Int($0 * 100))%" } ?? "Compressing"
+            progressHandler(progress, detail, "", chunk)
+        }
+    }
+
+    func result(exitCode: Int32) -> ProcessRunResult {
+        queue.sync {
+            ProcessRunResult(exitCode: exitCode, stdout: stdout, stderr: stderr)
+        }
+    }
+}
+
 final class ArchiveCompressionService: ObservableObject {
     static let shared = ArchiveCompressionService()
 
@@ -11,8 +75,10 @@ final class ArchiveCompressionService: ObservableObject {
     @Published private(set) var recoveryCleanupError: String?
 
     private var activeJobIDBySource: [String: UUID] = [:]
-    private var processes: [UUID: Process] = [:]
+    private var processes: [UUID: OwnedArchiveProcess] = [:]
     private var cancelRequestedIDs = Set<UUID>()
+    private var completedCommitIDs = Set<UUID>()
+    private var recoveryValidationIDs = Set<UUID>()
     private var quitAfterSourcePaths = Set<String>()
     private var completionWaiters: [() -> Void] = []
     private var acceptsNewJobs = true
@@ -37,7 +103,8 @@ final class ArchiveCompressionService: ObservableObject {
     var recoveryJobs: [ArchiveJob] {
         jobsByID.values.filter {
             let disposition = recoveryDisposition(for: $0)
-            return disposition != .alreadyCompleted && disposition != .noAction
+            return recoveryValidationIDs.contains($0.id)
+                || (disposition != .alreadyCompleted && disposition != .noAction)
         }.sorted { $0.startedAt < $1.startedAt }
     }
 
@@ -80,7 +147,11 @@ final class ArchiveCompressionService: ObservableObject {
     func restart(jobID: UUID) {
         guard var job = jobsByID[jobID] else { return }
         let disposition = recoveryDisposition(for: job)
-        guard disposition == .restartEncoding || disposition == .completedOutputMissing else { return }
+        guard ArchiveRecoveryTransition.decide(
+            status: job.status,
+            disposition: disposition,
+            request: .restartEncoding
+        ) == .start else { return }
         guard fd.fileExists(atPath: job.sourceURL.path) else {
             job.errorMessage = "The source recording is missing."
             job.detail = "Archive recovery needs attention"
@@ -109,16 +180,43 @@ final class ArchiveCompressionService: ObservableObject {
     }
 
     func recoverTemporaryOutput(jobID: UUID) {
-        guard let job = jobsByID[jobID], recoveryDisposition(for: job) == .validateTemporaryOutput else { return }
-        beginRecoveryValidation(job: job, candidateURL: job.tempOutputURL, moveToFinalOutput: true)
+        guard let job = jobsByID[jobID] else { return }
+        beginRecoveryValidation(
+            job: job,
+            request: .validateTemporaryOutput,
+            candidateURL: job.tempOutputURL,
+            moveToFinalOutput: true
+        )
     }
 
     func recoverFinalOutput(jobID: UUID) {
-        guard let job = jobsByID[jobID], recoveryDisposition(for: job) == .validateFinalOutput else { return }
-        beginRecoveryValidation(job: job, candidateURL: job.outputURL, moveToFinalOutput: false)
+        guard let job = jobsByID[jobID] else { return }
+        beginRecoveryValidation(
+            job: job,
+            request: .validateFinalOutput,
+            candidateURL: job.outputURL,
+            moveToFinalOutput: false
+        )
     }
 
-    private func beginRecoveryValidation(job initialJob: ArchiveJob, candidateURL: URL, moveToFinalOutput: Bool) {
+    func isRecoveryValidationInProgress(jobID: UUID) -> Bool {
+        recoveryValidationIDs.contains(jobID)
+    }
+
+    private func beginRecoveryValidation(
+        job initialJob: ArchiveJob,
+        request: ArchiveRecoveryRequest,
+        candidateURL: URL,
+        moveToFinalOutput: Bool
+    ) {
+        let disposition = recoveryDisposition(for: initialJob)
+        guard !recoveryValidationIDs.contains(initialJob.id),
+              ArchiveRecoveryTransition.decide(
+                status: initialJob.status,
+                disposition: disposition,
+                request: request
+              ) == .start else { return }
+        recoveryValidationIDs.insert(initialJob.id)
         var job = initialJob
         job.status = .verifying
         job.progress = 1
@@ -130,6 +228,7 @@ final class ArchiveCompressionService: ObservableObject {
             jobsByID[job.id] = job
             activeJobIDBySource[job.sourceURL.path] = job.id
         } catch {
+            recoveryValidationIDs.remove(job.id)
             job.status = .failed
             job.detail = "Archive manifest write failed"
             job.errorMessage = error.localizedDescription
@@ -242,17 +341,21 @@ final class ArchiveCompressionService: ObservableObject {
 
     func cancel(jobID: UUID) {
         guard var job = jobsByID[jobID], job.isRunning, job.status != .cancelling else { return }
+        let accepted = processLock.sync { () -> Bool in
+            guard !completedCommitIDs.contains(jobID) else { return false }
+            return cancelRequestedIDs.insert(jobID).inserted
+        }
+        guard accepted else { return }
         job.status = .cancelling
         job.detail = "Cancelling archive"
         job.updatedAt = Date()
-        _ = processLock.sync { cancelRequestedIDs.insert(jobID) }
         persistOrPublishFailure(job)
         processLock.async {
-            if let process = self.processes[jobID], process.isRunning {
-                process.terminate()
-                self.processLock.asyncAfter(deadline: .now() + 3) {
-                    guard self.processes[jobID] === process, process.isRunning else { return }
-                    Darwin.kill(process.processIdentifier, SIGKILL)
+            if let ownedProcess = self.processes[jobID] {
+                self.signal(ownedProcess, signal: SIGTERM)
+                self.processLock.asyncAfter(deadline: .now() + 5) {
+                    guard self.processes[jobID] === ownedProcess else { return }
+                    self.signal(ownedProcess, signal: SIGKILL)
                 }
             }
         }
@@ -333,10 +436,10 @@ final class ArchiveCompressionService: ObservableObject {
 
         do {
             if isCancellationRequested(job.id) {
-                try finishCancelled(&job)
+                finishCancelled(&job)
                 return
             }
-            let runtime = try FFmpegRuntime.resolve()
+            let runtime = try FFmpegRuntime.resolve(cancellationRequested: { self.isCancellationRequested(job.id) })
             job.runtimeDescription = runtime.description
             job.command = [runtime.ffmpegURL.path] + AV1ArchiveCommandBuilder.command(runtime: runtime, sourceURL: job.sourceURL, tempOutputURL: job.tempOutputURL, preset: job.preset)
             job.status = .compressing
@@ -359,7 +462,7 @@ final class ArchiveCompressionService: ObservableObject {
 
             if result.exitCode != 0 {
                 if isCancellationRequested(job.id) || result.exitCode == 15 {
-                    try finishCancelled(&job)
+                    finishCancelled(&job)
                     return
                 }
                 throw NSError(domain: "QuickRecorderArchive", code: Int(result.exitCode), userInfo: [NSLocalizedDescriptionKey: "FFmpeg failed. See archive logs for details."])
@@ -380,22 +483,15 @@ final class ArchiveCompressionService: ObservableObject {
                 logDirectory: job.logDirectory,
                 cancellationRequested: { self.isCancellationRequested(job.id) }
             )
-            try throwIfCancelled(job.id)
-
-            if fd.fileExists(atPath: job.outputURL.path) {
-                throw NSError(domain: "QuickRecorderArchive", code: 20, userInfo: [NSLocalizedDescriptionKey: "Output already exists."])
-            }
-            try fd.moveItem(at: job.tempOutputURL, to: job.outputURL)
-            job.outputSizeBytes = fileSize(job.outputURL)
-            job.validation = validation
-            job.status = .completed
-            job.detail = "Wrote \(job.outputURL.lastPathComponent)"
-            job.updatedAt = Date()
-            job.endedAt = Date()
-            try persistAndPublish(job)
+            try commitCompleted(
+                &job,
+                validation: validation,
+                candidateURL: job.tempOutputURL,
+                moveToFinalOutput: true
+            )
             SCContext.showNotification(title: "Archive Complete".local, body: String(format: "File saved to: %@".local, job.outputURL.path), id: "quickrecorder.archive.\(UUID().uuidString)")
         } catch ArchiveSubprocessError.cancelled {
-            try? finishCancelled(&job)
+            finishCancelled(&job)
         } catch FFmpegRuntimeError.missingRuntime {
             finish(&job, status: .runtimeMissing, detail: "FFmpeg runtime missing", error: "Install FFmpeg Runtime")
         } catch {
@@ -416,8 +512,11 @@ final class ArchiveCompressionService: ObservableObject {
             if moveToFinalOutput && fd.fileExists(atPath: job.outputURL.path) {
                 throw NSError(domain: "QuickRecorderArchive", code: 20, userInfo: [NSLocalizedDescriptionKey: "Output already exists."])
             }
-            try ensureArchiveOutputIsInactive(candidateURL)
-            let runtime = try FFmpegRuntime.resolve()
+            try ensureArchiveOutputIsInactive(
+                candidateURL,
+                cancellationRequested: { self.isCancellationRequested(job.id) }
+            )
+            let runtime = try FFmpegRuntime.resolve(cancellationRequested: { self.isCancellationRequested(job.id) })
             let stderrURL = job.logDirectory.appendingPathComponent("ffmpeg-stderr.log")
             let stderrLog = (try? String(contentsOf: stderrURL, encoding: .utf8)) ?? ""
             let validation = try ArchiveTimestampValidator.validate(
@@ -429,19 +528,14 @@ final class ArchiveCompressionService: ObservableObject {
                 logDirectory: job.logDirectory,
                 cancellationRequested: { self.isCancellationRequested(job.id) }
             )
-            try throwIfCancelled(job.id)
-            if moveToFinalOutput {
-                try fd.moveItem(at: candidateURL, to: job.outputURL)
-            }
-            job.validation = validation
-            job.outputSizeBytes = fileSize(job.outputURL)
-            job.status = .completed
-            job.detail = "Wrote \(job.outputURL.lastPathComponent)"
-            job.updatedAt = Date()
-            job.endedAt = Date()
-            try persistAndPublish(job)
+            try commitCompleted(
+                &job,
+                validation: validation,
+                candidateURL: candidateURL,
+                moveToFinalOutput: moveToFinalOutput
+            )
         } catch ArchiveSubprocessError.cancelled {
-            try? finishCancelled(&job)
+            finishCancelled(&job)
         } catch {
             finish(&job, status: .interrupted, detail: "Archive recovery needs attention", error: error.localizedDescription)
         }
@@ -449,49 +543,70 @@ final class ArchiveCompressionService: ObservableObject {
 
     private func runFFmpeg(runtime: FFmpegRuntime, arguments: [String], job: ArchiveJob, progressHandler: @escaping (Double?, String, String, String) -> Void) throws -> ProcessRunResult {
         let process = Process()
-        process.launchPath = runtime.ffmpegURL.path
-        process.arguments = arguments
+        let parentLifetimePipe = Pipe()
+        _ = Darwin.fcntl(parentLifetimePipe.fileHandleForWriting.fileDescriptor, F_SETFD, FD_CLOEXEC)
+        process.launchPath = "/bin/sh"
+        process.arguments = [
+            "-c",
+            Self.parentLifetimeFFmpegWrapper,
+            "quickrecorder-ffmpeg",
+            runtime.ffmpegURL.path
+        ] + arguments
+        process.standardInput = parentLifetimePipe
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        var stdout = ""
-        var stderr = ""
-        var duration: TimeInterval?
-
-        stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-            stdout += chunk
-            progressHandler(nil, "Compressing", chunk, "")
-        }
-        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-            stderr += chunk
-            if duration == nil { duration = ArchiveProgressParser.duration(from: chunk) ?? ArchiveProgressParser.duration(from: stderr) }
-            var progress: Double?
-            if let duration = duration, duration > 0, let encoded = ArchiveProgressParser.encodedTime(from: chunk) {
-                progress = min(max(encoded / duration, 0), 0.999)
-            }
-            let detail = progress.map { "Compressing \(Int($0 * 100))%" } ?? "Compressing"
-            progressHandler(progress, detail, "", chunk)
-        }
-
         try process.run()
-        processLock.sync { processes[job.id] = process }
-        if isCancellationRequested(job.id), process.isRunning { process.terminate() }
+        try? stdoutPipe.fileHandleForWriting.close()
+        try? stderrPipe.fileHandleForWriting.close()
+
+        let outputCollector = FFmpegOutputCollector(progressHandler: progressHandler)
+        let outputReadGroup = DispatchGroup()
+        outputReadGroup.enter()
+        DispatchQueue.global(qos: .utility).async {
+            defer { outputReadGroup.leave() }
+            let handle = stdoutPipe.fileHandleForReading
+            while true {
+                let data = handle.availableData
+                if data.isEmpty { return }
+                outputCollector.consumeStdout(data)
+            }
+        }
+        outputReadGroup.enter()
+        DispatchQueue.global(qos: .utility).async {
+            defer { outputReadGroup.leave() }
+            let handle = stderrPipe.fileHandleForReading
+            while true {
+                let data = handle.availableData
+                if data.isEmpty { return }
+                outputCollector.consumeStderr(data)
+            }
+        }
+
+        let ownedProcess = OwnedArchiveProcess(
+            process: process,
+            parentLifetimeWriteHandle: parentLifetimePipe.fileHandleForWriting
+        )
+        let shouldCancel = processLock.sync { () -> Bool in
+            processes[job.id] = ownedProcess
+            return cancelRequestedIDs.contains(job.id)
+        }
+        if shouldCancel {
+            signal(ownedProcess, signal: SIGTERM)
+        }
         process.waitUntilExit()
-        stdoutPipe.fileHandleForReading.readabilityHandler = nil
-        stderrPipe.fileHandleForReading.readabilityHandler = nil
+        ownedProcess.closeParentLifetimeSignal()
+        outputReadGroup.wait()
+        let result = outputCollector.result(exitCode: process.terminationStatus)
         processLock.sync {
             processes[job.id] = nil
             closedProgressPersistenceIDs.insert(job.id)
         }
 
-        return ProcessRunResult(exitCode: process.terminationStatus, stdout: stdout, stderr: stderr)
+        return result
     }
 
     private func publishProgress(job baseJob: ArchiveJob, progress: Double?, detail: String) {
@@ -519,16 +634,91 @@ final class ArchiveCompressionService: ObservableObject {
         }
     }
 
-    private func finishCancelled(_ job: inout ArchiveJob) throws {
-        try removeTemporaryOutputIfOwned(job)
+    private func commitCompleted(
+        _ job: inout ArchiveJob,
+        validation: [String: Any],
+        candidateURL: URL,
+        moveToFinalOutput: Bool
+    ) throws {
+        try processLock.sync {
+            if cancelRequestedIDs.contains(job.id) {
+                throw ArchiveSubprocessError.cancelled
+            }
+            completedCommitIDs.insert(job.id)
+            if moveToFinalOutput {
+                if fd.fileExists(atPath: job.outputURL.path) {
+                    throw NSError(domain: "QuickRecorderArchive", code: 20, userInfo: [NSLocalizedDescriptionKey: "Output already exists."])
+                }
+                try fd.moveItem(at: candidateURL, to: job.outputURL)
+            }
+            job.validation = validation
+            job.outputSizeBytes = fileSize(job.outputURL)
+            job.status = .completed
+            job.detail = "Wrote \(job.outputURL.lastPathComponent)"
+            job.updatedAt = Date()
+            job.endedAt = Date()
+            try persistenceQueue.sync {
+                try ArchiveManifestStore.writeManifest(job: job)
+            }
+        }
+        publish(job)
+    }
+
+    private func signal(_ ownedProcess: OwnedArchiveProcess, signal: Int32) {
+        ownedProcess.closeParentLifetimeSignal()
+        if signal == SIGKILL, ownedProcess.process.isRunning {
+            _ = Darwin.kill(ownedProcess.process.processIdentifier, signal)
+        }
+    }
+
+    private static let parentLifetimeFFmpegWrapper = #"""
+    set -m
+    "$@" </dev/null &
+    child=$!
+    set +m
+    (
+        while IFS= read -r _; do :; done
+        child_pgid=$(/bin/ps -o pgid= -p "$child" | /usr/bin/tr -d ' ')
+        if [ "$child_pgid" = "$child" ]; then
+            /bin/kill -TERM -- "-$child" 2>/dev/null
+        else
+            /bin/kill -TERM "$child" 2>/dev/null
+        fi
+        /bin/sleep 3
+        if [ "$child_pgid" = "$child" ]; then
+            /bin/kill -KILL -- "-$child" 2>/dev/null
+        else
+            /bin/kill -KILL "$child" 2>/dev/null
+        fi
+    ) &
+    watcher=$!
+    wait "$child"
+    status=$?
+    if /bin/kill -0 -- "-$child" 2>/dev/null; then
+        wait "$watcher" 2>/dev/null
+    else
+        /bin/kill -TERM "$watcher" 2>/dev/null
+        wait "$watcher" 2>/dev/null
+    fi
+    exit "$status"
+    """#
+
+    private func finishCancelled(_ job: inout ArchiveJob) {
+        let cleanupError: Error?
+        do {
+            try removeTemporaryOutputIfOwned(job)
+            cleanupError = nil
+        } catch {
+            cleanupError = error
+        }
         _ = processLock.sync { cancelRequestedIDs.remove(job.id) }
-        job.status = .cancelled
+        job.status = cleanupError == nil ? .cancelled : .failed
         job.progress = nil
-        job.detail = "Archive cancelled"
-        job.errorMessage = nil
+        job.detail = cleanupError == nil ? "Archive cancelled" : "Archive cancellation cleanup failed"
+        job.errorMessage = cleanupError?.localizedDescription
         job.updatedAt = Date()
         job.endedAt = Date()
-        try persistAndPublish(job)
+        persistOrPublishFailure(job)
     }
 
     private func finish(_ job: inout ArchiveJob, status: ArchiveJobStatus, detail: String, error: String?) {
@@ -571,6 +761,12 @@ final class ArchiveCompressionService: ObservableObject {
                 self.activeJobIDBySource[job.sourceURL.path] = job.id
             } else if self.activeJobIDBySource[job.sourceURL.path] == job.id {
                 self.activeJobIDBySource[job.sourceURL.path] = nil
+            }
+            if !job.isRunning {
+                self.recoveryValidationIDs.remove(job.id)
+                _ = self.processLock.sync {
+                    self.completedCommitIDs.remove(job.id)
+                }
             }
             if self.quitAfterSourcePaths.contains(job.sourceURL.path), !job.isRunning {
                 self.quitAfterSourcePaths.remove(job.sourceURL.path)
@@ -710,11 +906,15 @@ final class ArchiveCompressionService: ObservableObject {
         try ensureArchiveOutputIsInactive(job.tempOutputURL)
     }
 
-    private func ensureArchiveOutputIsInactive(_ url: URL) throws {
+    private func ensureArchiveOutputIsInactive(
+        _ url: URL,
+        cancellationRequested: @escaping () -> Bool = { false }
+    ) throws {
         let result = try FFmpegRuntime.run(
             URL(fileURLWithPath: "/usr/sbin/lsof"),
             arguments: ["-t", "--", url.path],
-            timeout: 5
+            timeout: 5,
+            cancellationRequested: cancellationRequested
         )
         if result.exitCode == 0 && !result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw NSError(

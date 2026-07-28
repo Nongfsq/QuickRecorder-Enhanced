@@ -1,4 +1,4 @@
-# Multi-Display Window Recovery PLAN+TASK
+# Multi-Display Window Recovery Plan and Tasks
 
 Status: **approved for execution by the user's combined plan-and-execute request**
 
