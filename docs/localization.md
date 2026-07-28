@@ -22,6 +22,12 @@ Automated completeness does not replace native-language copy review or UI
 layout testing; the completed Italian expansion still requires that review
 before release sign-off.
 
+Codec, container, channel-mode, frame-rate, bitrate, and similar fixed technical
+identifiers listed in `Localization/supported-locales.json` are verbatim UI
+tokens. Keep their value identical in every locale; translate the surrounding
+label or explanation instead. The gate rejects semantic or machine-translated
+rewrites such as treating `Mono`, `AAC`, `Opus`, or `VFR` as ordinary words.
+
 ## Translator exchange
 
 Use Xcode's standard XLIFF boundary rather than editing a built application:

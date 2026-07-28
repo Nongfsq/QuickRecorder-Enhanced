@@ -326,13 +326,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "10帧/秒"
+            "value": "10 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "10幀/秒"
+            "value": "10 FPS"
           }
         }
       }
@@ -354,13 +354,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "100Kbps"
+            "value": "100 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "100Kbps"
+            "value": "100 Kbps"
           }
         }
       }
@@ -382,13 +382,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "1000Kbps"
+            "value": "1000 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "1000Kbps"
+            "value": "1000 Kbps"
           }
         }
       }
@@ -410,13 +410,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "120帧/秒"
+            "value": "120 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "120幀/秒"
+            "value": "120 FPS"
           }
         }
       }
@@ -438,13 +438,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "144帧/秒"
+            "value": "144 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "144幀/秒"
+            "value": "144 FPS"
           }
         }
       }
@@ -466,13 +466,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "15帧/秒"
+            "value": "15 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "15幀/秒"
+            "value": "15 FPS"
           }
         }
       }
@@ -494,13 +494,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "150Kbps"
+            "value": "150 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "150Kbps"
+            "value": "150 Kbps"
           }
         }
       }
@@ -522,13 +522,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "200Kbps"
+            "value": "200 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "200Kbps"
+            "value": "200 Kbps"
           }
         }
       }
@@ -550,13 +550,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "24帧/秒"
+            "value": "24 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "24幀/秒"
+            "value": "24 FPS"
           }
         }
       }
@@ -578,13 +578,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "240帧/秒"
+            "value": "240 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "240幀/秒"
+            "value": "240 FPS"
           }
         }
       }
@@ -606,13 +606,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "30帧/秒"
+            "value": "30 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "30幀/秒"
+            "value": "30 FPS"
           }
         }
       }
@@ -634,13 +634,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "300Kbps"
+            "value": "300 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "300Kbps"
+            "value": "300 Kbps"
           }
         }
       }
@@ -662,13 +662,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "50Kbps"
+            "value": "50 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "50Kbps"
+            "value": "50 Kbps"
           }
         }
       }
@@ -690,13 +690,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "500Kbps"
+            "value": "500 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "500Kbps"
+            "value": "500 Kbps"
           }
         }
       }
@@ -718,13 +718,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "60帧/秒"
+            "value": "60 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "60幀/秒"
+            "value": "60 FPS"
           }
         }
       }
@@ -746,13 +746,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "75Kbps"
+            "value": "75 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "75Kbps"
+            "value": "75 Kbps"
           }
         }
       }
@@ -774,13 +774,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "800Kbps"
+            "value": "800 Kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "800Kbps"
+            "value": "800 Kbps"
           }
         }
       }
@@ -802,13 +802,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "90帧/秒"
+            "value": "90 FPS"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "90幀/秒"
+            "value": "90 FPS"
           }
         }
       }
@@ -852,19 +852,19 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "CAA"
+            "value": "AAC"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "亚克力"
+            "value": "AAC"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "亞克力"
+            "value": "AAC"
           }
         }
       }
@@ -886,13 +886,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "AAC 单声道 48 kbps"
+            "value": "AAC mono 48 kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "AAC 單聲道 48 kbps"
+            "value": "AAC mono 48 kbps"
           }
         }
       }
@@ -914,13 +914,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "AAC 单声道 64 kbps"
+            "value": "AAC mono 64 kbps"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "AAC 單聲道 64 kbps"
+            "value": "AAC mono 64 kbps"
           }
         }
       }
@@ -936,19 +936,19 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALAC (senza perdite)"
+            "value": "ALAC (Lossless)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALAC（无损）"
+            "value": "ALAC (Lossless)"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALAC（無損）"
+            "value": "ALAC (Lossless)"
           }
         }
       }
@@ -1020,19 +1020,19 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "VFR adattivo"
+            "value": "Adaptive VFR"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自适应 VFR"
+            "value": "Adaptive VFR"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "自適應 VFR"
+            "value": "Adaptive VFR"
           }
         }
       }
@@ -3848,19 +3848,19 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLAC (senza perdita di dati)"
+            "value": "FLAC (Lossless)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLAC（无损）"
+            "value": "FLAC (Lossless)"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLAC（無損）"
+            "value": "FLAC (Lossless)"
           }
         }
       }
@@ -5338,13 +5338,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单核细胞增多症"
+            "value": "Mono"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "單核白血球增多症"
+            "value": "Mono"
           }
         }
       }
@@ -5926,13 +5926,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "作品"
+            "value": "Opus"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "作品"
+            "value": "Opus"
           }
         }
       }
@@ -8642,13 +8642,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "立体声"
+            "value": "Stereo"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "立體聲"
+            "value": "Stereo"
           }
         }
       }
@@ -9650,13 +9650,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目视飞行频率"
+            "value": "VFR"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "目視飛行頻率"
+            "value": "VFR"
           }
         }
       }
