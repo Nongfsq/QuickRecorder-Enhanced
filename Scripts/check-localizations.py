@@ -195,9 +195,24 @@ def validate(catalog: dict, manifest: dict, local_keys: set[str]) -> list[str]:
     if incomplete:
         errors.append(f"manifest: shipping locales are not complete: {', '.join(incomplete)}")
 
+    verbatim_entries = manifest.get("verbatimKeys", [])
+    if not isinstance(verbatim_entries, list) or any(
+        not isinstance(value, str) or not value for value in verbatim_entries
+    ):
+        errors.append("manifest: verbatimKeys must contain only non-empty strings")
+        verbatim_keys: set[str] = set()
+    else:
+        verbatim_keys = set(verbatim_entries)
+        if len(verbatim_keys) != len(verbatim_entries):
+            errors.append("manifest: verbatimKeys must be unique")
+
     strings = catalog.get("strings")
     if not isinstance(strings, dict) or not strings:
         return errors + ["catalog: strings must be a non-empty object"]
+
+    missing_verbatim_keys = sorted(verbatim_keys - set(strings))
+    for key in missing_verbatim_keys:
+        errors.append(f"verbatim: declared key absent from catalog: {key!r}")
 
     catalog_locales = {source_language} if isinstance(source_language, str) else set()
     for item in strings.values():
@@ -240,6 +255,8 @@ def validate(catalog: dict, manifest: dict, local_keys: set[str]) -> list[str]:
                 errors.append(
                     f"placeholder: {locale} {key!r} expected {expected_signature}, got {actual_signature}"
                 )
+            if key in verbatim_keys and value != key:
+                errors.append(f"verbatim: {locale} translation for {key!r} changed to {value!r}")
 
     absent = sorted(local_keys - set(strings))
     for key in absent:
@@ -274,6 +291,12 @@ def run_self_test(catalog: dict, manifest: dict, local_keys: set[str]) -> list[s
     changed_manifest = copy.deepcopy(manifest)
     changed_manifest["locales"].append({"identifier": "test", "complete": True})
     cases.append(("locale-set", catalog, changed_manifest, local_keys, "locale-set:"))
+
+    changed = copy.deepcopy(catalog)
+    verbatim_key = manifest["verbatimKeys"][0]
+    changed["strings"][verbatim_key]["localizations"][translated_locale]["stringUnit"]["value"] = "translated"
+    cases.append(("verbatim", changed, manifest, local_keys, "verbatim:"))
+
     cases.append(("swiftui-source-key", catalog, manifest, local_keys | {"__missing_swiftui_fixture__"}, "source-key:"))
 
     for name, test_catalog, test_manifest, test_keys, marker in cases:
@@ -316,7 +339,7 @@ def main() -> int:
     if pending_review:
         print(f"Native-language review pending before release sign-off: {', '.join(pending_review)}.")
     if args.self_test:
-        print("Localization validator self-test passed: 5 invalid mutations rejected.")
+        print("Localization validator self-test passed: 6 invalid mutations rejected.")
     return 0
 
 

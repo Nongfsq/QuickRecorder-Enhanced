@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-## 1.7.0-alpha.3
+## 1.7.0-alpha.4
+
+- Restored codec, container, channel-mode, frame-rate, and bitrate identifiers
+  to their standard verbatim forms in every language, and added a CI invariant
+  preventing technical UI tokens such as `AAC`, `Mono`, `Opus`, and `VFR` from
+  being semantically translated.
+
+## 1.7.0-alpha.3 (withdrawn)
 
 - Replaced drifting UI string tables with one validated String Catalog,
   completed the shipping locale key set, and added an app-owned language picker
