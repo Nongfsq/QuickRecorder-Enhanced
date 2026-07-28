@@ -39,6 +39,7 @@ let previewWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 266, height:
 @main
 struct QuickRecorderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var appLanguageStore = AppLanguageStore.shared
     
     var body: some Scene {
         DocumentGroup(newDocument: qmaPackageHandle()) { file in
@@ -47,6 +48,8 @@ struct QuickRecorderApp: App {
                     qmaPlayerView(document: file.$document, fileURL: fileURL)
                         .frame(minWidth: 400, minHeight: 100, maxHeight: 100)
                         .focusable(false)
+                        .environmentObject(appLanguageStore)
+                        .environment(\.locale, appLanguageStore.locale)
                 }
             //}
         }
@@ -60,6 +63,8 @@ struct QuickRecorderApp: App {
         
         Settings {
             SettingsView()
+                .environmentObject(appLanguageStore)
+                .environment(\.locale, appLanguageStore.locale)
                 .background(
                     WindowAccessor(
                         onWindowOpen: { w in
@@ -167,7 +172,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
         let mouseLocation = event.locationInWindow
         var windowFrame = mousePointer.frame
         windowFrame.origin = NSPoint(x: mouseLocation.x - windowFrame.width / 2, y: mouseLocation.y - windowFrame.height / 2)
-        mousePointer.contentView = NSHostingView(rootView: MousePointerView(event: event))
+        mousePointer.contentView = NSHostingView(rootView: AppLocalizedRoot(MousePointerView(event: event)))
         mousePointer.setFrameOrigin(windowFrame.origin)
         mousePointer.orderFront(nil)
     }
@@ -180,7 +185,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
         guard let image = NSImage.createScreenShot() else { return }
         let rect = NSRect(x: mouseLocation.x - 67, y: mouseLocation.y - 58, width: 134, height: 116)
         let croppedImage = image.trim(rect: rect)
-        screenMagnifier.contentView = NSHostingView(rootView: ScreenMagnifier(screenShot: croppedImage, event: event))
+        screenMagnifier.contentView = NSHostingView(rootView: AppLocalizedRoot(ScreenMagnifier(screenShot: croppedImage, event: event)))
         screenMagnifier.setFrameOrigin(windowFrame.origin)
         screenMagnifier.orderFront(nil)
     }
@@ -482,7 +487,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SCStreamDelegate, SCStreamOu
                 let offset = (!showOnDock && !showMenubar) ? 127 : 0
                 let width = isMacOS12 ? 800 : 928
                 let mainPanel = EscPanel(contentRect: NSRect(x: 0, y: 0, width: width + offset, height: 100), styleMask: [.fullSizeContentView, .nonactivatingPanel], backing: .buffered, defer: false)
-                mainPanel.contentView = NSHostingView(rootView: ContentView())
+                mainPanel.contentView = NSHostingView(rootView: AppLocalizedRoot(ContentView()))
                 mainPanel.title = "QuickRecorder".local
                 mainPanel.isOpaque = false
                 mainPanel.level = .floating
@@ -649,7 +654,9 @@ extension Bundle {
 }
 
 extension String {
-    var local: String { return NSLocalizedString(self, comment: "") }
+    var local: String {
+        AppLanguageStore.shared.selectedBundle.localizedString(forKey: self, value: self, table: nil)
+    }
     var deletingPathExtension: String {
         return (self as NSString).deletingPathExtension
     }

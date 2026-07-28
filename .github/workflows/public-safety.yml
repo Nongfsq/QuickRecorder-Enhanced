@@ -20,8 +20,8 @@ jobs:
         run: |
           plutil -lint QuickRecorder/Info.plist
           plutil -lint QuickRecorder/QuickRecorder.entitlements
-          plutil -lint QuickRecorder/zh-Hans.lproj/Localizable.strings
-          plutil -lint QuickRecorder/zh-Hant.lproj/Localizable.strings
+      - name: Validate shipping localizations
+        run: python3 Scripts/check-localizations.py --self-test
       - name: Test RNNoise package
         run: swift test --package-path Packages/RNNoiseProcessor
       - name: Test archive job domain

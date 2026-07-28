@@ -9,6 +9,7 @@ architecture decisions, and release requirements.
 - [Features](features.md)
 - [Architecture](architecture/README.md)
 - [Testing](testing.md)
+- [Localization](localization.md)
 - [Building and signing](building.md)
 - [Release policy](releases.md)
 - [Upstream relationship](upstream.md)
@@ -21,6 +22,8 @@ architecture decisions, and release requirements.
 - [Architecture refactor plan and tasks](architecture/refactor-plan.md)
 - [Execution plans](plans/README.md)
 - [Architecture decision records](decisions/README.md)
+- [Global localization blueprint](architecture/2026-07-27-global-localization-blueprint.md)
+- [Global localization implementation plan](plans/2026-07-27-global-localization-plan.md)
 
 ## Component and tool references
 

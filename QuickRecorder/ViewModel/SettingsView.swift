@@ -41,6 +41,7 @@ struct SettingsView: View {
 }
 
 struct GeneralView: View {
+    @EnvironmentObject private var appLanguageStore: AppLanguageStore
     @AppStorage("countdown") private var countdown: Int = 0
     @AppStorage("poSafeDelay") private var poSafeDelay: Int = 1
     @AppStorage("showOnDock") private var showOnDock: Bool = true
@@ -51,6 +52,28 @@ struct GeneralView: View {
     var body: some View {
         SettingsScrollView {
             SForm(noSpacer: true) {
+            SGroupBox(label: "Application Language") {
+                SItem {
+                    Picker("", selection: Binding(
+                        get: { appLanguageStore.selectedIdentifier },
+                        set: { appLanguageStore.select($0) }
+                    )) {
+                        Text("System Default").tag(AppLanguageStore.systemIdentifier)
+                        ForEach(appLanguageStore.availableLanguages) { language in
+                            Text(verbatim: language.displayName).tag(language.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                if appLanguageStore.restartRecommended {
+                    SDivider()
+                    Text("Language changes apply immediately where possible. Restart for menus, alerts, and all windows.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
             SGroupBox(label: "Startup") {
                 if #available(macOS 13, *) {
                     SToggle("Launch at Login", isOn: $launchAtLogin)

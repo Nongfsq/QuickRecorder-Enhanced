@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Replaced drifting UI string tables with one validated String Catalog,
+  completed the shipping locale key set, and added an app-owned language picker
+  for System Default, English, Simplified Chinese, Traditional Chinese, and
+  Italian.
+- Routed every standalone SwiftUI host through the selected application locale
+  and added CI coverage for static SwiftUI localization keys.
 - Unified writer, microphone, pause-timeline, and teardown ownership behind one
   serial recording-session media owner.
 - Added typed, awaitable recording finalization for screen capture, audio

@@ -220,7 +220,7 @@ struct AreaSelector: View {
         window.isReleasedWhenClosed = false
         window.title = "Area Overlayer".local
         window.backgroundColor = NSColor.clear
-        window.contentView = NSHostingView(rootView: DashWindow())
+        window.contentView = NSHostingView(rootView: AppLocalizedRoot(DashWindow()))
         window.orderFront(self)
         appDelegate.createCountdownPanel(screen: screen) {
             SCContext.autoStop = autoStop

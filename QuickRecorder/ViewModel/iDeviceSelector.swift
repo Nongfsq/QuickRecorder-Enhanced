@@ -12,7 +12,7 @@ extension AppDelegate {
     func startDeviceOverlayer(size: NSSize = NSSize(width: 200, height: 200)){
         guard let screen = SCContext.getScreenWithMouse() else { return }
         let frame = NSRect(x: (screen.visibleFrame.width-size.width)/2+screen.frame.minX, y: (screen.visibleFrame.height-size.height)/2+screen.frame.minY, width: size.width, height: size.height)
-        deviceWindow.contentView = NSHostingView(rootView: SwiftCameraView(type: .idevice))
+        deviceWindow.contentView = NSHostingView(rootView: AppLocalizedRoot(SwiftCameraView(type: .idevice)))
         deviceWindow.setFrame(frame, display: true)
         deviceWindow.contentView?.wantsLayer = true
         deviceWindow.contentView?.layer?.cornerRadius = 5
@@ -135,5 +135,4 @@ struct ActivityIndicator: View {
             }
     }
 }
-
 

@@ -13,7 +13,7 @@ import AVFoundation
 extension AppDelegate {
     func startCameraOverlayer(size: NSSize = NSSize(width: 200, height: 200)){
         guard let screen = SCContext.getScreenWithMouse() else { return }
-        camWindow.contentView = NSHostingView(rootView: SwiftCameraView(type: .camera))
+        camWindow.contentView = NSHostingView(rootView: AppLocalizedRoot(SwiftCameraView(type: .camera)))
         let frame = NSRect(x: (screen.visibleFrame.width-size.width)/2+screen.frame.minX, y: (screen.visibleFrame.height-size.height)/2+screen.frame.minY, width: size.width, height: size.height)
         camWindow.setFrame(frame, display: true)
         //camWindow.setFrameOrigin(NSPoint(x: screen.visibleFrame.width/2-100, y: screen.visibleFrame.height/2-100))

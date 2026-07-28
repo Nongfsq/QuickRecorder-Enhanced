@@ -16,8 +16,7 @@ swift test --package-path Packages/RecordingDomain
 swift test --package-path Packages/WindowPlacementCore
 plutil -lint QuickRecorder/Info.plist
 plutil -lint QuickRecorder/QuickRecorder.entitlements
-plutil -lint QuickRecorder/zh-Hans.lproj/Localizable.strings
-plutil -lint QuickRecorder/zh-Hant.lproj/Localizable.strings
+python3 Scripts/check-localizations.py --self-test
 ```
 
 When a package is not yet present on a historical branch, omit only that
@@ -50,6 +49,12 @@ behavior, recovery, and upgrade behavior.
 
 Do not use a Debug application build as a substitute for this gate. Do not
 reset TCC to automate it.
+
+For localization changes, also compile `QuickRecorder/Localizable.xcstrings`
+with `xcstringstool` and confirm that the Release bundle contains `en`,
+`zh-Hans`, `zh-Hant`, and `it` localizations. Switching every language,
+checking long settings labels, and confirming persistence after restart remain
+human-run application smoke tests.
 
 ## Public release gate
 

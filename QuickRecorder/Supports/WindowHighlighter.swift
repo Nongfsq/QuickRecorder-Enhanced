@@ -125,7 +125,7 @@ struct HighlightMask: View {
             dashWindow.isReleasedWhenClosed = false
             dashWindow.title = "Area Overlayer".local
             dashWindow.backgroundColor = NSColor.clear
-            dashWindow.contentView = NSHostingView(rootView: DashWindow())
+            dashWindow.contentView = NSHostingView(rootView: AppLocalizedRoot(DashWindow()))
             dashWindow.orderFront(self)
             appDelegate.createCountdownPanel(screen: screen) {
                 SCContext.autoStop = autoStop
@@ -169,7 +169,7 @@ class WindowHighlighter {
         
         for screen in NSScreen.screens {
             let cover = EscPanel(contentRect: screen.frame, styleMask: [.nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
-            cover.contentView = NSHostingView(rootView: CoverView())
+            cover.contentView = NSHostingView(rootView: AppLocalizedRoot(CoverView()))
             cover.level = .statusBar
             cover.sharingType = .none
             cover.backgroundColor = .clear
@@ -227,7 +227,7 @@ class WindowHighlighter {
         
         mask = EscPanel(contentRect: CGRectTransform(cgRect: frame),
                         styleMask: [.nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
-        let contentView = NSHostingView(rootView: HighlightMask(app: app, title: title, windowID: windowID))
+        let contentView = NSHostingView(rootView: AppLocalizedRoot(HighlightMask(app: app, title: title, windowID: windowID)))
         mask?.contentView = contentView
         mask?.title = "Mask Window"
         mask?.hasShadow = false

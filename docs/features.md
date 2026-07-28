@@ -41,3 +41,15 @@ runtime explicitly or build a package with the scripts under `Tools/Archive`.
 ScreenCaptureKit content discovery is single-shot at startup. A denied request
 returns unavailable immediately and is not retried automatically. Permission
 requests should occur only after a user action.
+
+## Application language
+
+General Settings offers System Default, English, Simplified Chinese,
+Traditional Chinese, and Italian. The choice is stored by QuickRecorder and
+does not change the global macOS language order. SwiftUI content can update
+immediately; restart QuickRecorder to apply the choice consistently to menus,
+alerts, and windows that were already open.
+
+Only complete localizations embedded in the signed application and declared in
+the shipping locale manifest appear in the picker. QuickRecorder does not
+download or execute runtime language packs.

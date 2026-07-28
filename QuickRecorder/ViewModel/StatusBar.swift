@@ -145,7 +145,7 @@ struct StatusBarItem: View {
                             guard let screen = SCContext.getScreenWithMouse() else { return }
                             let width = getStatusBarWidth()
                             let wX = (screen.frame.width - width) / 2
-                            let contentView = NSHostingView(rootView: StatusBarItem())
+                            let contentView = NSHostingView(rootView: AppLocalizedRoot(StatusBarItem()))
                             contentView.frame = NSRect(x: wX, y: screen.visibleFrame.maxY, width: width, height: 24)
                             controlPanel.setFrame(contentView.frame, display: true)
                             controlPanel.contentView = contentView
@@ -230,7 +230,7 @@ func updateStatusBar() {
         }
         guard let button = statusBarItem.button else { return }
         //let width = SCContext.streamType == nil ? 36 : ((SCContext.streamType == .idevice || SCContext.streamType == .systemaudio) ? 138 : 158)
-        let iconView = NSHostingView(rootView: StatusBarItem().padding(.top, isMacOS14 ? -2 : -1))
+        let iconView = NSHostingView(rootView: AppLocalizedRoot(StatusBarItem().padding(.top, isMacOS14 ? -2 : -1)))
         iconView.frame = NSRect(x: 0, y: 1, width: getStatusBarWidth(), height: isMacOS14 ? 22 : 21)
         button.subviews = [iconView]
         button.frame = iconView.frame
