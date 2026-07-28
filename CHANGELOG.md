@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.7.0-alpha.3
+
 - Replaced drifting UI string tables with one validated String Catalog,
   completed the shipping locale key set, and added an app-owned language picker
   for System Default, English, Simplified Chinese, Traditional Chinese, and
